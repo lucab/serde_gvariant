@@ -170,7 +170,7 @@ where
         for _ in 0..buf.capacity() {
             let byte = self.reader.read_u8()?;
             if byte == 0 {
-                break
+                break;
             }
             buf.push(byte);
         }
@@ -204,7 +204,11 @@ where
     {
         Err(Self::Error::custom("unsupported"))
     }
-    fn deserialize_unit_struct<V>(self, _name: &'static str, _visitor: V) -> errors::Result<V::Value>
+    fn deserialize_unit_struct<V>(
+        self,
+        _name: &'static str,
+        _visitor: V,
+    ) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
