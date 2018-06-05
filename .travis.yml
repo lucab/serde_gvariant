@@ -1,0 +1,27 @@
+language: rust
+
+rust:
+  - stable
+  - beta
+  - nightly
+#  - nightly-2018-01-26
+
+matrix:
+  allow_failures:
+    - rust: nightly
+
+env:
+  global:
+    - CLIPPY_VERSION=0.0.182
+    - CLIPPY_RUST_VERSION=nightly-2018-01-26
+
+before_script:
+  - bash -c 'if [[ "$TRAVIS_RUST_VERSION" == "$CLIPPY_RUST_VERSION" ]]; then
+      cargo install clippy --vers $CLIPPY_VERSION --force;
+    fi'
+
+script:
+  - cargo test
+  - bash -c 'if [[ "$TRAVIS_RUST_VERSION" == "$CLIPPY_RUST_VERSION" ]]; then
+      cargo clippy -- -D warnings;
+    fi'
