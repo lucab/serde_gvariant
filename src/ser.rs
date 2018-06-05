@@ -38,87 +38,129 @@ where
             false => 0u8,
             true => 1u8,
         };
-        self.writer.write_u8(byte).chain_err(|| "failed to serialize bool")
+        self.writer
+            .write_u8(byte)
+            .chain_err(|| "failed to serialize bool")
     }
 
     fn serialize_u8(self, v: u8) -> errors::Result<Self::Ok> {
-        self.writer.write_u8(v).chain_err(|| "failed to serialize u8")
+        self.writer
+            .write_u8(v)
+            .chain_err(|| "failed to serialize u8")
     }
 
     fn serialize_u16(self, v: u16) -> errors::Result<Self::Ok> {
         if self.options.little_endian {
-            self.writer.write_u16::<LittleEndian>(v).chain_err(|| "failed to serialize u16")
+            self.writer
+                .write_u16::<LittleEndian>(v)
+                .chain_err(|| "failed to serialize u16")
         } else {
-            self.writer.write_u16::<BigEndian>(v).chain_err(|| "failed to serialize u16")
+            self.writer
+                .write_u16::<BigEndian>(v)
+                .chain_err(|| "failed to serialize u16")
         }
     }
 
     fn serialize_u32(self, v: u32) -> errors::Result<Self::Ok> {
         if self.options.little_endian {
-            self.writer.write_u32::<LittleEndian>(v).chain_err(|| "failed to serialize u32")
+            self.writer
+                .write_u32::<LittleEndian>(v)
+                .chain_err(|| "failed to serialize u32")
         } else {
-            self.writer.write_u32::<BigEndian>(v).chain_err(|| "failed to serialize u32")
+            self.writer
+                .write_u32::<BigEndian>(v)
+                .chain_err(|| "failed to serialize u32")
         }
     }
 
     fn serialize_u64(self, v: u64) -> errors::Result<Self::Ok> {
         if self.options.little_endian {
-            self.writer.write_u64::<LittleEndian>(v).chain_err(|| "failed to serialize u64")
+            self.writer
+                .write_u64::<LittleEndian>(v)
+                .chain_err(|| "failed to serialize u64")
         } else {
-            self.writer.write_u64::<BigEndian>(v).chain_err(|| "failed to serialize u64")
+            self.writer
+                .write_u64::<BigEndian>(v)
+                .chain_err(|| "failed to serialize u64")
         }
     }
 
     fn serialize_i8(self, v: i8) -> errors::Result<Self::Ok> {
-        self.writer.write_i8(v).chain_err(|| "failed to serialize u8")
+        self.writer
+            .write_i8(v)
+            .chain_err(|| "failed to serialize u8")
     }
 
     fn serialize_i16(self, v: i16) -> errors::Result<Self::Ok> {
         if self.options.little_endian {
-            self.writer.write_i16::<LittleEndian>(v).chain_err(|| "failed to serialize i16")
+            self.writer
+                .write_i16::<LittleEndian>(v)
+                .chain_err(|| "failed to serialize i16")
         } else {
-            self.writer.write_i16::<BigEndian>(v).chain_err(|| "failed to serialize i16")
+            self.writer
+                .write_i16::<BigEndian>(v)
+                .chain_err(|| "failed to serialize i16")
         }
     }
 
     fn serialize_i32(self, v: i32) -> errors::Result<Self::Ok> {
         if self.options.little_endian {
-            self.writer.write_i32::<LittleEndian>(v).chain_err(|| "failed to serialize i32")
+            self.writer
+                .write_i32::<LittleEndian>(v)
+                .chain_err(|| "failed to serialize i32")
         } else {
-            self.writer.write_i32::<BigEndian>(v).chain_err(|| "failed to serialize i32")
+            self.writer
+                .write_i32::<BigEndian>(v)
+                .chain_err(|| "failed to serialize i32")
         }
     }
 
     fn serialize_i64(self, v: i64) -> errors::Result<Self::Ok> {
         if self.options.little_endian {
-            self.writer.write_i64::<LittleEndian>(v).chain_err(|| "failed to serialize i64")
+            self.writer
+                .write_i64::<LittleEndian>(v)
+                .chain_err(|| "failed to serialize i64")
         } else {
-            self.writer.write_i64::<BigEndian>(v).chain_err(|| "failed to serialize i64")
+            self.writer
+                .write_i64::<BigEndian>(v)
+                .chain_err(|| "failed to serialize i64")
         }
     }
 
     fn serialize_f32(self, v: f32) -> errors::Result<Self::Ok> {
         let double = f64::from(v);
         if self.options.little_endian {
-            self.writer.write_f64::<LittleEndian>(double).chain_err(|| "failed to serialize f64")
+            self.writer
+                .write_f64::<LittleEndian>(double)
+                .chain_err(|| "failed to serialize f64")
         } else {
-            self.writer.write_f64::<BigEndian>(double).chain_err(|| "failed to serialize f64")
+            self.writer
+                .write_f64::<BigEndian>(double)
+                .chain_err(|| "failed to serialize f64")
         }
     }
 
     fn serialize_f64(self, v: f64) -> errors::Result<Self::Ok> {
         if self.options.little_endian {
-            self.writer.write_f64::<LittleEndian>(v).chain_err(|| "failed to serialize f64")
+            self.writer
+                .write_f64::<LittleEndian>(v)
+                .chain_err(|| "failed to serialize f64")
         } else {
-            self.writer.write_f64::<BigEndian>(v).chain_err(|| "failed to serialize f64")
+            self.writer
+                .write_f64::<BigEndian>(v)
+                .chain_err(|| "failed to serialize f64")
         }
     }
 
     fn serialize_str(self, v: &str) -> errors::Result<Self::Ok> {
         for b in v.as_bytes() {
-            self.writer.write_u8(*b).chain_err(|| "failed to serialize string character")?;
+            self.writer
+                .write_u8(*b)
+                .chain_err(|| "failed to serialize string character")?;
         }
-        self.writer.write_u8(0u8).chain_err(|| "failed to serialize string terminator")
+        self.writer
+            .write_u8(0u8)
+            .chain_err(|| "failed to serialize string terminator")
     }
 
     fn serialize_char(self, _c: char) -> errors::Result<Self::Ok> {
@@ -170,7 +212,11 @@ where
         Err(Self::Error::custom("unsupported"))
     }
 
-    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct, Self::Error> {
+    fn serialize_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeStruct, Self::Error> {
         Err(Self::Error::custom("unsupported"))
     }
 
