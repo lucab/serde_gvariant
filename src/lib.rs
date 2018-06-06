@@ -57,7 +57,7 @@ where
     R: std::io::Read,
     T: serde::de::DeserializeOwned,
 {
-    config().from_reader(reader)
+    config().deserialize_reader(reader)
 }
 
 /// Deserializes a slice of bytes into an instance of `T` using the default configuration.
@@ -65,5 +65,5 @@ pub fn from_slice<'a, T>(bytes: &'a [u8]) -> errors::Result<T>
 where
     T: serde::de::Deserialize<'a>,
 {
-    config().from_slice(bytes)
+    config().deserialize_slice(bytes)
 }

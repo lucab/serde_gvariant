@@ -60,12 +60,11 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res;
-        if self.options.little_endian {
-            res = self.reader.read_i16::<LittleEndian>()?;
+        let res = if self.options.little_endian {
+            self.reader.read_i16::<LittleEndian>()?
         } else {
-            res = self.reader.read_i16::<BigEndian>()?;
-        }
+            self.reader.read_i16::<BigEndian>()?
+        };
         visitor.visit_i16(res)
     }
 
@@ -73,12 +72,11 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res;
-        if self.options.little_endian {
-            res = self.reader.read_i32::<LittleEndian>()?;
+        let res = if self.options.little_endian {
+            self.reader.read_i32::<LittleEndian>()?
         } else {
-            res = self.reader.read_i32::<BigEndian>()?;
-        }
+            self.reader.read_i32::<BigEndian>()?
+        };
         visitor.visit_i32(res)
     }
 
@@ -86,12 +84,11 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res;
-        if self.options.little_endian {
-            res = self.reader.read_i64::<LittleEndian>()?;
+        let res = if self.options.little_endian {
+            self.reader.read_i64::<LittleEndian>()?
         } else {
-            res = self.reader.read_i64::<BigEndian>()?;
-        }
+            self.reader.read_i64::<BigEndian>()?
+        };
         visitor.visit_i64(res)
     }
 
@@ -107,12 +104,11 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res;
-        if self.options.little_endian {
-            res = self.reader.read_u16::<LittleEndian>()?;
+        let res = if self.options.little_endian {
+            self.reader.read_u16::<LittleEndian>()?
         } else {
-            res = self.reader.read_u16::<BigEndian>()?;
-        }
+            self.reader.read_u16::<BigEndian>()?
+        };
         visitor.visit_u16(res)
     }
 
@@ -120,12 +116,11 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res;
-        if self.options.little_endian {
-            res = self.reader.read_u32::<LittleEndian>()?;
+        let res = if self.options.little_endian {
+            self.reader.read_u32::<LittleEndian>()?
         } else {
-            res = self.reader.read_u32::<BigEndian>()?;
-        }
+            self.reader.read_u32::<BigEndian>()?
+        };
         visitor.visit_u32(res)
     }
 
@@ -133,12 +128,11 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res;
-        if self.options.little_endian {
-            res = self.reader.read_u64::<LittleEndian>()?;
+        let res = if self.options.little_endian {
+            self.reader.read_u64::<LittleEndian>()?
         } else {
-            res = self.reader.read_u64::<BigEndian>()?;
-        }
+            self.reader.read_u64::<BigEndian>()?
+        };
         visitor.visit_u64(res)
     }
 
@@ -153,12 +147,11 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res;
-        if self.options.little_endian {
-            res = self.reader.read_f64::<LittleEndian>()?;
+        let res = if self.options.little_endian {
+            self.reader.read_f64::<LittleEndian>()?
         } else {
-            res = self.reader.read_f64::<BigEndian>()?;
-        }
+            self.reader.read_f64::<BigEndian>()?
+        };
         visitor.visit_f64(res)
     }
 

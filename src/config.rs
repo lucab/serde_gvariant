@@ -32,7 +32,7 @@ impl Config {
     }
 
     /// Deserializes a slice of bytes into an instance of `T` using this configuration
-    pub fn from_slice<'a, T: serde::Deserialize<'a>>(&self, bytes: &'a [u8]) -> errors::Result<T> {
+    pub fn deserialize_slice<'a, T: serde::Deserialize<'a>>(&self, bytes: &'a [u8]) -> errors::Result<T> {
         let reader = io::BufReader::with_capacity(bytes.len(), bytes);
         let mut deserializer = ::de::Deserializer {
             reader,
@@ -43,7 +43,7 @@ impl Config {
     }
 
     /// Deserializes an object directly from a `Read`er using this configuration
-    pub fn from_reader<R: io::Read, T: serde::de::DeserializeOwned>(
+    pub fn deserialize_reader<R: io::Read, T: serde::de::DeserializeOwned>(
         &self,
         reader: R,
     ) -> errors::Result<T> {
