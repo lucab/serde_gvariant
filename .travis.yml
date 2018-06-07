@@ -4,7 +4,7 @@ rust:
   - stable
   - beta
   - nightly
-#  - nightly-2018-01-26
+  - nightly-2018-05-22
 
 matrix:
   allow_failures:
@@ -12,8 +12,8 @@ matrix:
 
 env:
   global:
-    - CLIPPY_VERSION=0.0.182
-    - CLIPPY_RUST_VERSION=nightly-2018-01-26
+    - CLIPPY_VERSION=0.0.205
+    - CLIPPY_RUST_VERSION=nightly-2018-05-29
 
 before_script:
   - bash -c 'if [[ "$TRAVIS_RUST_VERSION" == "$CLIPPY_RUST_VERSION" ]]; then

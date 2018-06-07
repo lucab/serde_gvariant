@@ -34,10 +34,7 @@ where
     }
 
     fn serialize_bool(self, v: bool) -> errors::Result<Self::Ok> {
-        let byte = match v {
-            false => 0u8,
-            true => 1u8,
-        };
+        let byte: u8 = if v { 1 } else { 0 };
         self.writer
             .write_u8(byte)
             .chain_err(|| "failed to serialize bool")
