@@ -30,7 +30,7 @@ where
     }
 
     fn serialize_unit_struct(self, _: &'static str) -> errors::Result<Self::Ok> {
-        Ok(())
+        Err(Self::Error::custom("unsupported"))
     }
 
     fn serialize_bool(self, v: bool) -> errors::Result<Self::Ok> {
@@ -164,8 +164,13 @@ where
         Err(Self::Error::custom("unsupported"))
     }
 
-    fn serialize_bytes(self, _v: &[u8]) -> errors::Result<Self::Ok> {
-        Err(Self::Error::custom("unsupported"))
+    fn serialize_bytes(self, v: &[u8]) -> errors::Result<Self::Ok> {
+        for b in v {
+            self.writer
+                .write_u8(*b)
+                .chain_err(|| "failed to serialize byte element")?;
+        }
+        Ok(())
     }
 
     fn serialize_none(self) -> errors::Result<Self::Ok> {

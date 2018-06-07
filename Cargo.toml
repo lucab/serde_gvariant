@@ -10,4 +10,5 @@ error-chain = {version = "0.11", default-features = false}
 
 
 [dev-dependencies]
-proptest = "0.7.0"
+proptest = "0.7"
+serde_bytes = "0.10"
