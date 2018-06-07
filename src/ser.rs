@@ -47,37 +47,37 @@ where
     }
 
     fn serialize_u16(self, v: u16) -> errors::Result<Self::Ok> {
-        if self.options.little_endian {
+        if self.options.network_endian {
             self.writer
-                .write_u16::<LittleEndian>(v)
+                .write_u16::<BigEndian>(v)
                 .chain_err(|| "failed to serialize u16")
         } else {
             self.writer
-                .write_u16::<BigEndian>(v)
+                .write_u16::<LittleEndian>(v)
                 .chain_err(|| "failed to serialize u16")
         }
     }
 
     fn serialize_u32(self, v: u32) -> errors::Result<Self::Ok> {
-        if self.options.little_endian {
+        if self.options.network_endian {
             self.writer
-                .write_u32::<LittleEndian>(v)
+                .write_u32::<BigEndian>(v)
                 .chain_err(|| "failed to serialize u32")
         } else {
             self.writer
-                .write_u32::<BigEndian>(v)
+                .write_u32::<LittleEndian>(v)
                 .chain_err(|| "failed to serialize u32")
         }
     }
 
     fn serialize_u64(self, v: u64) -> errors::Result<Self::Ok> {
-        if self.options.little_endian {
+        if self.options.network_endian {
             self.writer
-                .write_u64::<LittleEndian>(v)
+                .write_u64::<BigEndian>(v)
                 .chain_err(|| "failed to serialize u64")
         } else {
             self.writer
-                .write_u64::<BigEndian>(v)
+                .write_u64::<LittleEndian>(v)
                 .chain_err(|| "failed to serialize u64")
         }
     }
@@ -89,62 +89,62 @@ where
     }
 
     fn serialize_i16(self, v: i16) -> errors::Result<Self::Ok> {
-        if self.options.little_endian {
+        if self.options.network_endian {
             self.writer
-                .write_i16::<LittleEndian>(v)
+                .write_i16::<BigEndian>(v)
                 .chain_err(|| "failed to serialize i16")
         } else {
             self.writer
-                .write_i16::<BigEndian>(v)
+                .write_i16::<LittleEndian>(v)
                 .chain_err(|| "failed to serialize i16")
         }
     }
 
     fn serialize_i32(self, v: i32) -> errors::Result<Self::Ok> {
-        if self.options.little_endian {
+        if self.options.network_endian {
             self.writer
-                .write_i32::<LittleEndian>(v)
+                .write_i32::<BigEndian>(v)
                 .chain_err(|| "failed to serialize i32")
         } else {
             self.writer
-                .write_i32::<BigEndian>(v)
+                .write_i32::<LittleEndian>(v)
                 .chain_err(|| "failed to serialize i32")
         }
     }
 
     fn serialize_i64(self, v: i64) -> errors::Result<Self::Ok> {
-        if self.options.little_endian {
+        if self.options.network_endian {
             self.writer
-                .write_i64::<LittleEndian>(v)
+                .write_i64::<BigEndian>(v)
                 .chain_err(|| "failed to serialize i64")
         } else {
             self.writer
-                .write_i64::<BigEndian>(v)
+                .write_i64::<LittleEndian>(v)
                 .chain_err(|| "failed to serialize i64")
         }
     }
 
     fn serialize_f32(self, v: f32) -> errors::Result<Self::Ok> {
         let double = f64::from(v);
-        if self.options.little_endian {
+        if self.options.network_endian {
             self.writer
-                .write_f64::<LittleEndian>(double)
+                .write_f64::<BigEndian>(double)
                 .chain_err(|| "failed to serialize f64")
         } else {
             self.writer
-                .write_f64::<BigEndian>(double)
+                .write_f64::<LittleEndian>(double)
                 .chain_err(|| "failed to serialize f64")
         }
     }
 
     fn serialize_f64(self, v: f64) -> errors::Result<Self::Ok> {
-        if self.options.little_endian {
+        if self.options.network_endian {
             self.writer
-                .write_f64::<LittleEndian>(v)
+                .write_f64::<BigEndian>(v)
                 .chain_err(|| "failed to serialize f64")
         } else {
             self.writer
-                .write_f64::<BigEndian>(v)
+                .write_f64::<LittleEndian>(v)
                 .chain_err(|| "failed to serialize f64")
         }
     }

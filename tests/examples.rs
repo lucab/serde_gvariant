@@ -3,7 +3,7 @@ extern crate serde_gvariant;
 #[test]
 fn test_string_example() {
     let encoded: Vec<u8> = vec![
-        b'h', b'e', b'l', b'l', b'o', b' ', b'w', b'o', b'r', b'l', b'd', b'\0'
+        b'h', b'e', b'l', b'l', b'o', b' ', b'w', b'o', b'r', b'l', b'd', b'\0',
     ];
     let decoded: String = "hello world".to_string();
     let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("String ser");

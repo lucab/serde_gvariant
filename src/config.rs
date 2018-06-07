@@ -2,18 +2,28 @@ use errors::{self, ResultExt};
 use serde;
 use std::io;
 
+/// A configuration object whose settings will be used while
+/// serializing and deserializing.
 #[derive(Clone, Debug)]
 pub struct Config {
-    pub(crate) limit: Option<u32>,
-    pub(crate) little_endian: bool,
+    pub(crate) max_string_len: usize,
+    pub(crate) network_endian: bool,
 }
 
 impl Config {
-    pub(crate) fn new() -> Config {
+    /// Builds a new configuration object, with default settings.
+    pub fn new() -> Config {
         Config {
-            limit: None,
-            little_endian: true,
+            max_string_len: 8192,
+            network_endian: false,
         }
+    }
+
+    /// Sets whether to use network (i.e. big) endianness.
+    pub fn network_endian(self, ne: bool) -> Config {
+        let mut cfg = self;
+        cfg.network_endian = ne;
+        cfg
     }
 }
 
@@ -32,7 +42,10 @@ impl Config {
     }
 
     /// Deserializes a slice of bytes into an instance of `T` using this configuration
-    pub fn deserialize_slice<'a, T: serde::Deserialize<'a>>(&self, bytes: &'a [u8]) -> errors::Result<T> {
+    pub fn deserialize_slice<'a, T: serde::Deserialize<'a>>(
+        &self,
+        bytes: &'a [u8],
+    ) -> errors::Result<T> {
         let reader = io::BufReader::with_capacity(bytes.len(), bytes);
         let mut deserializer = ::de::Deserializer {
             reader,

@@ -60,10 +60,10 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res = if self.options.little_endian {
-            self.reader.read_i16::<LittleEndian>()?
-        } else {
+        let res = if self.options.network_endian {
             self.reader.read_i16::<BigEndian>()?
+        } else {
+            self.reader.read_i16::<LittleEndian>()?
         };
         visitor.visit_i16(res)
     }
@@ -72,10 +72,10 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res = if self.options.little_endian {
-            self.reader.read_i32::<LittleEndian>()?
-        } else {
+        let res = if self.options.network_endian {
             self.reader.read_i32::<BigEndian>()?
+        } else {
+            self.reader.read_i32::<LittleEndian>()?
         };
         visitor.visit_i32(res)
     }
@@ -84,10 +84,10 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res = if self.options.little_endian {
-            self.reader.read_i64::<LittleEndian>()?
-        } else {
+        let res = if self.options.network_endian {
             self.reader.read_i64::<BigEndian>()?
+        } else {
+            self.reader.read_i64::<LittleEndian>()?
         };
         visitor.visit_i64(res)
     }
@@ -104,10 +104,10 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res = if self.options.little_endian {
-            self.reader.read_u16::<LittleEndian>()?
-        } else {
+        let res = if self.options.network_endian {
             self.reader.read_u16::<BigEndian>()?
+        } else {
+            self.reader.read_u16::<LittleEndian>()?
         };
         visitor.visit_u16(res)
     }
@@ -116,10 +116,10 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res = if self.options.little_endian {
-            self.reader.read_u32::<LittleEndian>()?
-        } else {
+        let res = if self.options.network_endian {
             self.reader.read_u32::<BigEndian>()?
+        } else {
+            self.reader.read_u32::<LittleEndian>()?
         };
         visitor.visit_u32(res)
     }
@@ -128,10 +128,10 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res = if self.options.little_endian {
-            self.reader.read_u64::<LittleEndian>()?
-        } else {
+        let res = if self.options.network_endian {
             self.reader.read_u64::<BigEndian>()?
+        } else {
+            self.reader.read_u64::<LittleEndian>()?
         };
         visitor.visit_u64(res)
     }
@@ -147,10 +147,10 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res = if self.options.little_endian {
-            self.reader.read_f64::<LittleEndian>()?
-        } else {
+        let res = if self.options.network_endian {
             self.reader.read_f64::<BigEndian>()?
+        } else {
+            self.reader.read_f64::<LittleEndian>()?
         };
         visitor.visit_f64(res)
     }
@@ -159,7 +159,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let mut buf = Vec::with_capacity(255);
+        let mut buf = Vec::with_capacity(self.options.max_string_len as usize);
         for _ in 0..buf.capacity() {
             let byte = self.reader.read_u8()?;
             if byte == 0 {
