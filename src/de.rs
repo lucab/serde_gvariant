@@ -11,7 +11,7 @@ pub(crate) struct Deserializer<R> {
 
 impl<'de, 'a, R> de::Deserializer<'de> for &'a mut Deserializer<R>
 where
-    R: io::Read + ReadBytesExt,
+    R: io::Read,
 {
     type Error = errors::Error;
 
@@ -35,13 +35,6 @@ where
     }
 
     fn deserialize_char<V>(self, _visitor: V) -> errors::Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        Err(Self::Error::custom("unsupported"))
-    }
-
-    fn deserialize_str<V>(self, _visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
@@ -155,10 +148,19 @@ where
         visitor.visit_f64(res)
     }
 
+    fn deserialize_str<V>(self, _visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        // TODO(lucab): investigate borrowing.
+        Err(Self::Error::custom("unsupported"))
+    }
+
     fn deserialize_string<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
+        // TODO(lucab): consider a bufreader.
         let mut buf = Vec::with_capacity(self.options.max_string_len as usize);
         for _ in 0..buf.capacity() {
             let byte = self.reader.read_u8()?;
@@ -175,13 +177,16 @@ where
     where
         V: de::Visitor<'de>,
     {
+        // TODO(lucab): investigate borrowing.
         Err(Self::Error::custom("unsupported"))
     }
-    fn deserialize_byte_buf<V>(self, _visitor: V) -> errors::Result<V::Value>
+    fn deserialize_byte_buf<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Self::Error::custom("unsupported"))
+        let mut buf: Vec<u8> = Vec::new();
+        let _len = self.reader.read_to_end(&mut buf)?;
+        visitor.visit_byte_buf(buf)
     }
 
     fn deserialize_option<V>(self, _visitor: V) -> errors::Result<V::Value>
@@ -191,11 +196,11 @@ where
         Err(Self::Error::custom("unsupported"))
     }
 
-    fn deserialize_unit<V>(self, _visitor: V) -> errors::Result<V::Value>
+    fn deserialize_unit<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Self::Error::custom("unsupported"))
+        visitor.visit_unit()
     }
     fn deserialize_unit_struct<V>(
         self,
