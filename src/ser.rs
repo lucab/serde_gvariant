@@ -30,7 +30,7 @@ where
     }
 
     fn serialize_unit_struct(self, _: &'static str) -> errors::Result<Self::Ok> {
-        Err(Self::Error::custom("unsupported"))
+        Ok(())
     }
 
     fn serialize_bool(self, v: bool) -> errors::Result<Self::Ok> {

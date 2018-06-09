@@ -1,4 +1,6 @@
 extern crate serde_bytes;
+#[macro_use]
+extern crate serde_derive;
 extern crate serde_gvariant;
 
 #[test]
@@ -10,4 +12,26 @@ fn test_bytes_buf() {
     let ser: Vec<u8> = serde_gvariant::to_vec(&buf).expect("bytes ser");
     assert_eq!(ser, data.to_vec());
     assert_eq!(de, buf);
+}
+
+#[test]
+fn test_unit() {
+    let encoded: Vec<u8> = vec![];
+    let decoded = ();
+    let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("unit ser");
+    let de: () = serde_gvariant::from_slice(&encoded[..]).expect("unit de");
+    assert_eq!(ser, encoded);
+    assert_eq!(de, decoded);
+}
+
+#[test]
+fn test_unit_struct() {
+    #[derive(Debug, Deserialize, Serialize, PartialEq)]
+    struct TestType;
+    let encoded: Vec<u8> = vec![];
+    let decoded = TestType {};
+    let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("unit struct ser");
+    let de: TestType = serde_gvariant::from_slice(&encoded[..]).expect("unit struct de");
+    assert_eq!(ser, encoded);
+    assert_eq!(de, decoded);
 }

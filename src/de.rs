@@ -202,22 +202,18 @@ where
     {
         visitor.visit_unit()
     }
-    fn deserialize_unit_struct<V>(
-        self,
-        _name: &'static str,
-        _visitor: V,
-    ) -> errors::Result<V::Value>
+    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Self::Error::custom("unsupported"))
+        self.deserialize_unit(visitor)
     }
 
-    fn deserialize_newtype_struct<V>(self, _name: &str, _visitor: V) -> errors::Result<V::Value>
+    fn deserialize_newtype_struct<V>(self, _name: &str, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Self::Error::custom("unsupported"))
+        visitor.visit_newtype_struct(self)
     }
 
     fn deserialize_seq<V>(self, _visitor: V) -> errors::Result<V::Value>
@@ -238,12 +234,12 @@ where
         self,
         _name: &'static str,
         _len: usize,
-        _visitor: V,
+        visitor: V,
     ) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Self::Error::custom("unsupported"))
+        self.deserialize_seq(visitor)
     }
 
     fn deserialize_map<V>(self, _visitor: V) -> errors::Result<V::Value>
