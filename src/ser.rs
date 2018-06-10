@@ -1,18 +1,75 @@
 use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
 use config;
 use errors::{self, ResultExt};
+use serde::Serialize;
 use serde::{self, ser, ser::Error};
 use std::io;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Properties {
     pub(crate) fixed_size: bool,
+    pub(crate) size: usize,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(crate) struct Serializer<W> {
     pub(crate) writer: W,
     pub(crate) options: config::Config,
+}
+
+#[derive(Debug)]
+pub(crate) struct SerStruct<'a, W: 'a> {
+    pub(crate) cur_offset: usize,
+    pub(crate) framing_offsets: Vec<usize>,
+    pub(crate) name: String,
+    pub(crate) num_fields: usize,
+    pub(crate) serializer: &'a mut Serializer<W>,
+}
+
+impl<'a, W> ser::SerializeStruct for SerStruct<'a, W>
+where
+    W: io::Write,
+{
+    type Ok = Properties;
+    type Error = errors::Error;
+
+    fn serialize_field<T: ?Sized>(&mut self, _key: &'static str, value: &T) -> errors::Result<()>
+    where
+        T: Serialize,
+    {
+        let p = value.serialize(&mut *self.serializer)?;
+        if !p.fixed_size {
+            self.framing_offsets.push(self.cur_offset);
+        }
+        self.cur_offset += p.size;
+        Ok(())
+    }
+
+    fn end(self) -> errors::Result<Properties> {
+        // Fixed size
+        if self.framing_offsets.is_empty() {
+            let p = Properties {
+                fixed_size: true,
+                size: self.cur_offset,
+            };
+            return Ok(p);
+        };
+
+        // Non-fixed size
+        let len = self.framing_offsets.len();
+        let size = self.framing_offsets.last().cloned().unwrap();
+        if size > <u8>::max_value() as usize {
+            return Err(Self::Error::custom("unsupported"));
+        }
+        for off in &self.framing_offsets[0..len - 1] {
+            self.serializer.writer.write_u8(*off as u8)?;
+        }
+        let p = Properties {
+            fixed_size: false,
+            size: size,
+        };
+        Ok(p)
+    }
 }
 
 impl<'a, W> serde::Serializer for &'a mut Serializer<W>
@@ -20,7 +77,6 @@ where
     W: io::Write,
 {
     type Ok = Properties;
-
     type Error = errors::Error;
 
     type SerializeSeq = ser::Impossible<Self::Ok, Self::Error>;
@@ -28,16 +84,28 @@ where
     type SerializeTupleStruct = ser::Impossible<Self::Ok, Self::Error>;
     type SerializeTupleVariant = ser::Impossible<Self::Ok, Self::Error>;
     type SerializeMap = ser::Impossible<Self::Ok, Self::Error>;
-    type SerializeStruct = ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeStruct = SerStruct<'a, W>;
     type SerializeStructVariant = ser::Impossible<Self::Ok, Self::Error>;
 
     fn serialize_unit(self) -> errors::Result<Self::Ok> {
-        let p = Properties { fixed_size: true };
+        self.writer
+            .write_u8(0x00)
+            .chain_err(|| "failed to serialize unit")?;
+        let p = Properties {
+            fixed_size: true,
+            size: 1,
+        };
         Ok(p)
     }
 
     fn serialize_unit_struct(self, _: &'static str) -> errors::Result<Self::Ok> {
-        let p = Properties { fixed_size: true };
+        self.writer
+            .write_u8(0x00)
+            .chain_err(|| "failed to serialize unit struct")?;
+        let p = Properties {
+            fixed_size: true,
+            size: 1,
+        };
         Ok(p)
     }
 
@@ -46,7 +114,10 @@ where
         self.writer
             .write_u8(byte)
             .chain_err(|| "failed to serialize bool")?;
-        let p = Properties { fixed_size: true };
+        let p = Properties {
+            fixed_size: true,
+            size: 1,
+        };
         Ok(p)
     }
 
@@ -54,7 +125,10 @@ where
         self.writer
             .write_u8(v)
             .chain_err(|| "failed to serialize u8")?;
-        let p = Properties { fixed_size: true };
+        let p = Properties {
+            fixed_size: true,
+            size: 1,
+        };
         Ok(p)
     }
 
@@ -68,7 +142,10 @@ where
                 .write_u16::<LittleEndian>(v)
                 .chain_err(|| "failed to serialize u16")?;
         }
-        let p = Properties { fixed_size: true };
+        let p = Properties {
+            fixed_size: true,
+            size: 2,
+        };
         Ok(p)
     }
 
@@ -82,7 +159,10 @@ where
                 .write_u32::<LittleEndian>(v)
                 .chain_err(|| "failed to serialize u32")?;
         }
-        let p = Properties { fixed_size: true };
+        let p = Properties {
+            fixed_size: true,
+            size: 3,
+        };
         Ok(p)
     }
 
@@ -96,7 +176,10 @@ where
                 .write_u64::<LittleEndian>(v)
                 .chain_err(|| "failed to serialize u64")?;
         }
-        let p = Properties { fixed_size: true };
+        let p = Properties {
+            fixed_size: true,
+            size: 4,
+        };
         Ok(p)
     }
 
@@ -104,7 +187,10 @@ where
         self.writer
             .write_i8(v)
             .chain_err(|| "failed to serialize u8")?;
-        let p = Properties { fixed_size: true };
+        let p = Properties {
+            fixed_size: true,
+            size: 1,
+        };
         Ok(p)
     }
 
@@ -118,7 +204,10 @@ where
                 .write_i16::<LittleEndian>(v)
                 .chain_err(|| "failed to serialize i16")?;
         }
-        let p = Properties { fixed_size: true };
+        let p = Properties {
+            fixed_size: true,
+            size: 2,
+        };
         Ok(p)
     }
 
@@ -132,7 +221,10 @@ where
                 .write_i32::<LittleEndian>(v)
                 .chain_err(|| "failed to serialize i32")?;
         }
-        let p = Properties { fixed_size: true };
+        let p = Properties {
+            fixed_size: true,
+            size: 3,
+        };
         Ok(p)
     }
 
@@ -146,7 +238,10 @@ where
                 .write_i64::<LittleEndian>(v)
                 .chain_err(|| "failed to serialize i64")?;
         }
-        let p = Properties { fixed_size: true };
+        let p = Properties {
+            fixed_size: true,
+            size: 4,
+        };
         Ok(p)
     }
 
@@ -161,7 +256,10 @@ where
                 .write_f64::<LittleEndian>(double)
                 .chain_err(|| "failed to serialize f64")?;
         }
-        let p = Properties { fixed_size: true };
+        let p = Properties {
+            fixed_size: true,
+            size: 8,
+        };
         Ok(p)
     }
 
@@ -175,11 +273,15 @@ where
                 .write_f64::<LittleEndian>(v)
                 .chain_err(|| "failed to serialize f64")?;
         }
-        let p = Properties { fixed_size: true };
+        let p = Properties {
+            fixed_size: true,
+            size: 8,
+        };
         Ok(p)
     }
 
     fn serialize_str(self, v: &str) -> errors::Result<Self::Ok> {
+        let len = v.len() + 1;
         for b in v.as_bytes() {
             self.writer
                 .write_u8(*b)
@@ -188,7 +290,10 @@ where
         self.writer
             .write_u8(0x00)
             .chain_err(|| "failed to serialize string terminator")?;
-        let p = Properties { fixed_size: false };
+        let p = Properties {
+            fixed_size: false,
+            size: len,
+        };
         Ok(p)
     }
 
@@ -197,19 +302,26 @@ where
     }
 
     fn serialize_bytes(self, v: &[u8]) -> errors::Result<Self::Ok> {
+        let len = v.len();
         for b in v {
             self.writer
                 .write_u8(*b)
                 .chain_err(|| "failed to serialize byte element")?;
         }
-        let p = Properties { fixed_size: false };
+        let p = Properties {
+            fixed_size: false,
+            size: len,
+        };
         Ok(p)
     }
 
     fn serialize_none(self) -> errors::Result<Self::Ok> {
         // Fixed-Size inner: empty byte sequence.
         // Non-Fixed-Size inner: empty byte sequence.
-        let p = Properties { fixed_size: true };
+        let p = Properties {
+            fixed_size: true,
+            size: 0,
+        };
         Ok(p)
     }
 
@@ -218,7 +330,7 @@ where
         T: ser::Serialize,
     {
         use serde::Serialize;
-        let buf : Vec<u8> = Vec::new();
+        let buf: Vec<u8> = Vec::new();
 
         let mut first = Serializer {
             writer: buf,
@@ -227,14 +339,14 @@ where
 
         // Fixed-Size inner: just data.
         // Non-Fixed-Size inner: data + 0x00.
-        let prop = value.serialize(&mut first)?;
+        let mut prop = value.serialize(&mut first)?;
         if !prop.fixed_size {
             let terminator = 0u8;
             terminator.serialize(&mut first)?;
+            prop.size += 1;
         };
         self.writer.write(&first.writer)?;
-        let p = Properties { fixed_size: prop.fixed_size };
-        Ok(p)
+        Ok(prop)
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
@@ -269,10 +381,17 @@ where
 
     fn serialize_struct(
         self,
-        _name: &'static str,
-        _len: usize,
+        name: &'static str,
+        len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        Err(Self::Error::custom("unsupported"))
+        let s = Self::SerializeStruct {
+            cur_offset: 0,
+            framing_offsets: vec![],
+            name: name.to_string(),
+            num_fields: len,
+            serializer: self,
+        };
+        Ok(s)
     }
 
     fn serialize_struct_variant(
