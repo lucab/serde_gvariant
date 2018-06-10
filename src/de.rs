@@ -218,6 +218,10 @@ where
     where
         V: de::Visitor<'de>,
     {
+        let byte = self.reader.read_u8()?;
+        if byte != 0x00 {
+            return Err(Self::Error::custom("wrong unit byte"));
+        }
         visitor.visit_unit()
     }
     fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> errors::Result<V::Value>
