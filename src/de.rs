@@ -180,6 +180,7 @@ where
         // TODO(lucab): investigate borrowing.
         Err(Self::Error::custom("unsupported"))
     }
+
     fn deserialize_byte_buf<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -189,11 +190,28 @@ where
         visitor.visit_byte_buf(buf)
     }
 
-    fn deserialize_option<V>(self, _visitor: V) -> errors::Result<V::Value>
+    fn deserialize_option<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Self::Error::custom("unsupported"))
+        let mut buf: Vec<u8> = Vec::new();
+        let len = self.reader.read_to_end(&mut buf)?;
+        match len {
+            // Fixed-Size inner: empty byte sequence.
+            // Non-Fixed-Size inner: empty byte sequence.
+            0 => visitor.visit_none(),
+
+            // Fixed-Size inner: just data.
+            // Non-Fixed-Size inner: data + 0x00.
+            _ => {
+                // TODO(lucab): fix non-fixed trailing byte.
+                let mut sub = Deserializer {
+                    reader: buf.as_slice(),
+                    options: self.options.clone(),
+                };
+                visitor.visit_some(&mut sub)
+            }
+        }
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> errors::Result<V::Value>

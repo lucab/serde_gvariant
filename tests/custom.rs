@@ -35,3 +35,23 @@ fn test_unit_struct() {
     assert_eq!(ser, encoded);
     assert_eq!(de, decoded);
 }
+
+#[test]
+fn test_option() {
+    {
+        let encoded: Vec<u8> = vec![];
+        let decoded: Option<u8> = None;
+        let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("Option ser");
+        let de: Option<u8> = serde_gvariant::from_slice(&encoded[..]).expect("Option de");
+        assert_eq!(ser, encoded);
+        assert_eq!(de, decoded);
+    }
+    {
+        let encoded: Vec<u8> = vec![];
+        let decoded: Option<String> = None;
+        let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("Option ser");
+        let de: Option<String> = serde_gvariant::from_slice(&encoded[..]).expect("Option de");
+        assert_eq!(ser, encoded);
+        assert_eq!(de, decoded);
+    }
+}
