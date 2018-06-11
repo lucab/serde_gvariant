@@ -238,11 +238,18 @@ where
         visitor.visit_newtype_struct(self)
     }
 
-    fn deserialize_seq<V>(self, _visitor: V) -> errors::Result<V::Value>
+    fn deserialize_seq<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Self::Error::custom("unsupported"))
+        let mut buf: Vec<u8> = Vec::new();
+        let end = self.reader.read_to_end(&mut buf)?;
+        let mut sub = SeqDeAccess {
+            end: end as u64,
+            options: self.options.clone(),
+            reader: io::Cursor::new(buf),
+        };
+        visitor.visit_seq(&mut sub)
     }
 
     fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> errors::Result<V::Value>
@@ -306,6 +313,200 @@ where
 
     forward_to_deserialize_any! {
             identifier ignored_any
+    }
+}
+
+pub(crate) struct SeqDeAccess<RS> {
+    pub(crate) end: u64,
+    pub(crate) options: config::Config,
+    pub(crate) reader: RS,
+}
+
+impl<'a, 'de, RS> de::SeqAccess<'de> for &'a mut SeqDeAccess<RS>
+where
+    RS: io::Read + io::Seek,
+{
+    type Error = errors::Error;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> errors::Result<Option<T::Value>>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        // Stop if EOF is reached
+        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
+        if self.end == cur {
+            return Ok(None);
+        }
+
+        // Deserialize next element
+        let mut seq_de = SeqDeserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        let v = de::DeserializeSeed::deserialize(seed, &mut seq_de)?;
+        Ok(Some(v))
+    }
+}
+
+// A Deserializer specialized on array, with custom logic
+// for non-fized-size ones.
+pub(crate) struct SeqDeserializer<RS> {
+    pub(crate) options: config::Config,
+    pub(crate) reader: RS,
+}
+
+impl<'de, 'a, RS> de::Deserializer<'de> for &'a mut SeqDeserializer<RS>
+where
+    RS: io::Read + io::Seek,
+{
+    type Error = errors::Error;
+
+    // Unsupported
+    fn deserialize_any<V>(self, _visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(Self::Error::custom("unsupported"))
+    }
+    forward_to_deserialize_any! {
+        f32 identifier ignored_any
+    }
+
+    forward_to_deserialize_any! {
+            char str enum bytes byte_buf
+            unit unit_struct seq tuple tuple_struct map
+            option newtype_struct struct
+    }
+
+    // Fixed size
+    fn deserialize_bool<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_bool(visitor)
+    }
+
+    fn deserialize_i8<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_i8(visitor)
+    }
+
+    fn deserialize_u8<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_u8(visitor)
+    }
+
+    fn deserialize_i16<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_u16(visitor)
+    }
+
+    fn deserialize_u16<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_u16(visitor)
+    }
+
+    fn deserialize_i32<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_u32(visitor)
+    }
+
+    fn deserialize_u32<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_u32(visitor)
+    }
+
+    fn deserialize_i64<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_u64(visitor)
+    }
+
+    fn deserialize_u64<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_u64(visitor)
+    }
+
+    fn deserialize_f64<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_f64(visitor)
+    }
+
+    fn deserialize_string<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.reader.seek(io::SeekFrom::End(-1))?;
+        let end = self.reader.read_u8()?;
+        self.reader.seek(io::SeekFrom::Start(0))?;
+        let mut buf = Vec::with_capacity(end as usize);
+        self.reader.read_exact(&mut buf)?;
+        let value = {
+            let mut top = Deserializer {
+                reader: buf.as_slice(),
+                options: self.options.clone(),
+            };
+            let v = top.deserialize_string(visitor)?;
+            v
+        };
+        Ok(value)
     }
 }
 
