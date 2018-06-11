@@ -34,7 +34,7 @@ fn test_struct() {
         second: i32,
     };
     let encoded: Vec<u8> = vec![b'f', b'o', b'o', 0x00, 0xff, 0xff, 0xff, 0xff];
-    let decoded = TestType{
+    let decoded = TestType {
         first: "foo".to_string(),
         second: -1,
     };
@@ -52,7 +52,7 @@ fn test_simple_struct() {
         second: u8,
     };
     let encoded: Vec<u8> = vec![0x70, 0x80];
-    let decoded = TestType{
+    let decoded = TestType {
         first: 0x70,
         second: 0x80,
     };

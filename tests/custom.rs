@@ -54,6 +54,22 @@ fn test_option() {
         assert_eq!(ser, encoded);
         assert_eq!(de, decoded);
     }
+    {
+        let encoded: Vec<u8> = vec![0x01];
+        let decoded: Option<bool> = Some(true);
+        let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("Option ser");
+        let de: Option<bool> = serde_gvariant::from_slice(&encoded[..]).expect("Option de");
+        assert_eq!(ser, encoded);
+        assert_eq!(de, decoded);
+    }
+    {
+        let encoded: Vec<u8> = vec![b'a', 0x00, 0x00];
+        let decoded: Option<String> = Some("a".to_string());
+        let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("Option ser");
+        let de: Option<String> = serde_gvariant::from_slice(&encoded[..]).expect("Option de");
+        assert_eq!(ser, encoded);
+        assert_eq!(de, decoded);
+    }
 }
 
 #[test]
