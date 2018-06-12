@@ -733,11 +733,6 @@ where
         if self.cur_field >= self.num_fields {
             return Ok(None);
         }
-        // Stop if EOF is reached
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        if self.end == cur {
-            return Ok(None);
-        }
 
         // Deserialize next element
         let v = {
@@ -784,7 +779,7 @@ where
 
     forward_to_deserialize_any! {
             char str enum bytes byte_buf
-            unit unit_struct seq tuple tuple_struct map
+            unit unit_struct tuple tuple_struct map
             option newtype_struct struct
     }
 
@@ -924,6 +919,34 @@ where
             options: self.options.clone(),
         };
         let v = top.deserialize_string(visitor)?;
+        Ok(v)
+    }
+
+    fn deserialize_seq<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
+        let end = if (*self.cur_field + 1) >= *self.num_fields {
+            *self.end as u64
+        } else {
+            self.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
+            let val = self.reader.read_u8().chain_err(|| "struct seq len")?;
+            self.reader.seek(io::SeekFrom::Start(cur))?;
+            *self.end -= 1;
+            val as u64
+        };
+        let buflen = (end - cur) as usize;
+        let mut buf = Vec::with_capacity(buflen);
+        unsafe { buf.set_len(buflen) };
+        self.reader
+            .read_exact(&mut buf)
+            .chain_err(|| "struct seq")?;
+        let mut top = Deserializer {
+            reader: buf.as_slice(),
+            options: self.options.clone(),
+        };
+        let v = top.deserialize_seq(visitor)?;
         Ok(v)
     }
 }
