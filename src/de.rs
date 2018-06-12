@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use config;
-use errors;
+use errors::{self, ResultExt};
 use serde::de::{self, Error};
 use std::io;
 
@@ -163,7 +163,7 @@ where
         // TODO(lucab): consider a bufreader.
         let mut buf = Vec::with_capacity(self.options.max_string_len as usize);
         for _ in 0..buf.capacity() {
-            let byte = self.reader.read_u8()?;
+            let byte = self.reader.read_u8().chain_err(|| "string u8")?;
             if byte == 0 {
                 break;
             }
@@ -282,21 +282,21 @@ where
         self,
         _name: &str,
         fields: &'static [&'static str],
-        _visitor: V,
+        visitor: V,
     ) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let num_fields = fields.len();
-        let mut offsets: Vec<usize> = Vec::with_capacity(num_fields);
         let mut buf: Vec<u8> = Vec::new();
-        let len = self.reader.read_to_end(&mut buf)?;
-        offsets.push(len);
-        for _ in fields {
-            let off = buf.pop().unwrap();
-            offsets.push(usize::from(off));
-        }
-        Err(Self::Error::custom("unsupported"))
+        let end = self.reader.read_to_end(&mut buf)?;
+        let mut sub = StructDeAccess {
+            cur_field: 0,
+            end: end as u64,
+            num_fields: fields.len(),
+            options: self.options.clone(),
+            reader: io::Cursor::new(buf),
+        };
+        visitor.visit_seq(&mut sub)
     }
 
     fn deserialize_enum<V>(
@@ -420,7 +420,7 @@ where
             reader: &mut self.reader,
             options: self.options.clone(),
         };
-        top.deserialize_u16(visitor)
+        top.deserialize_i16(visitor)
     }
 
     fn deserialize_u16<V>(self, visitor: V) -> errors::Result<V::Value>
@@ -442,7 +442,7 @@ where
             reader: &mut self.reader,
             options: self.options.clone(),
         };
-        top.deserialize_u32(visitor)
+        top.deserialize_i32(visitor)
     }
 
     fn deserialize_u32<V>(self, visitor: V) -> errors::Result<V::Value>
@@ -464,7 +464,7 @@ where
             reader: &mut self.reader,
             options: self.options.clone(),
         };
-        top.deserialize_u64(visitor)
+        top.deserialize_i64(visitor)
     }
 
     fn deserialize_u64<V>(self, visitor: V) -> errors::Result<V::Value>
@@ -493,11 +493,14 @@ where
     where
         V: de::Visitor<'de>,
     {
+        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
         self.reader.seek(io::SeekFrom::End(-1))?;
-        let end = self.reader.read_u8()?;
-        self.reader.seek(io::SeekFrom::Start(0))?;
-        let mut buf = Vec::with_capacity(end as usize);
-        self.reader.read_exact(&mut buf)?;
+        let end = self.reader.read_u8()? as u64;
+        self.reader.seek(io::SeekFrom::Start(cur))?;
+        let buflen = (end - cur) as usize;
+        let mut buf = Vec::with_capacity(buflen);
+        unsafe { buf.set_len(buflen) };
+        self.reader.read_exact(&mut buf).chain_err(|| "seq string")?;
         let value = {
             let mut top = Deserializer {
                 reader: buf.as_slice(),
@@ -705,5 +708,222 @@ where
         char str enum bytes
         unit unit_struct seq tuple tuple_struct map
         option newtype_struct struct
+    }
+}
+
+pub(crate) struct StructDeAccess<RS> {
+    pub(crate) cur_field: usize,
+    pub(crate) end: u64,
+    pub(crate) num_fields: usize,
+    pub(crate) options: config::Config,
+    pub(crate) reader: RS,
+}
+
+impl<'a, 'de, RS> de::SeqAccess<'de> for &'a mut StructDeAccess<RS>
+where
+    RS: io::Read + io::Seek,
+{
+    type Error = errors::Error;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> errors::Result<Option<T::Value>>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        // Stop when all fields are done
+        if self.cur_field >= self.num_fields {
+            return Ok(None);
+        }
+        // Stop if EOF is reached
+        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
+        if self.end == cur {
+            return Ok(None);
+        }
+
+        // Deserialize next element
+        let v = {
+            let mut seq_de = StructDeserializer {
+                cur_field: &self.cur_field,
+                end: &mut self.end,
+                num_fields: &self.num_fields,
+                reader: &mut self.reader,
+                options: self.options.clone(),
+            };
+            de::DeserializeSeed::deserialize(seed, &mut seq_de)?
+        };
+        self.cur_field += 1;
+        Ok(Some(v))
+    }
+}
+
+// A Deserializer specialized on structures, with custom logic
+// for non-fized-size ones.
+pub(crate) struct StructDeserializer<'a, RS> {
+    pub(crate) cur_field: &'a usize,
+    pub(crate) end: &'a mut u64,
+    pub(crate) num_fields: &'a usize,
+    pub(crate) options: config::Config,
+    pub(crate) reader: RS,
+}
+
+impl<'de, 'a, RS> de::Deserializer<'de> for &'a mut StructDeserializer<'a, RS>
+where
+    RS: io::Read + io::Seek,
+{
+    type Error = errors::Error;
+
+    // Unsupported
+    fn deserialize_any<V>(self, _visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(Self::Error::custom("unsupported"))
+    }
+    forward_to_deserialize_any! {
+        f32 identifier ignored_any
+    }
+
+    forward_to_deserialize_any! {
+            char str enum bytes byte_buf
+            unit unit_struct seq tuple tuple_struct map
+            option newtype_struct struct
+    }
+
+    // Fixed size
+    fn deserialize_bool<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_bool(visitor)
+    }
+
+    fn deserialize_i8<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_i8(visitor)
+    }
+
+    fn deserialize_u8<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_u8(visitor)
+    }
+
+    fn deserialize_i16<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_i16(visitor)
+    }
+
+    fn deserialize_u16<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_u16(visitor)
+    }
+
+    fn deserialize_i32<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_i32(visitor)
+    }
+
+    fn deserialize_u32<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_u32(visitor)
+    }
+
+    fn deserialize_i64<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_i64(visitor)
+    }
+
+    fn deserialize_u64<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_u64(visitor)
+    }
+
+    fn deserialize_f64<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut top = Deserializer {
+            reader: &mut self.reader,
+            options: self.options.clone(),
+        };
+        top.deserialize_f64(visitor)
+    }
+
+    fn deserialize_string<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
+        let end = if (*self.cur_field + 1) >= *self.num_fields {
+            *self.end as u64
+        } else {
+            self.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
+            let val = self.reader.read_u8().chain_err(|| "struct string len")?;
+            self.reader.seek(io::SeekFrom::Start(cur))?;
+            *self.end -= 1;
+            val as u64
+        };
+        let buflen = (end - cur) as usize;
+        let mut buf = Vec::with_capacity(buflen);
+        unsafe { buf.set_len(buflen) };
+        self.reader
+            .read_exact(&mut buf)
+            .chain_err(|| "struct string")?;
+        let mut top = Deserializer {
+            reader: buf.as_slice(),
+            options: self.options.clone(),
+        };
+        let v = top.deserialize_string(visitor)?;
+        Ok(v)
     }
 }

@@ -19,6 +19,7 @@ pub(crate) struct Serializer<W> {
 
 #[derive(Debug)]
 pub(crate) struct SerStruct<'a, W: 'a> {
+    pub(crate) cur_field: usize,
     pub(crate) cur_offset: usize,
     pub(crate) framing_offsets: Vec<usize>,
     pub(crate) name: String,
@@ -37,11 +38,17 @@ where
     where
         T: Serialize,
     {
+        // Serialize this field
         let p = value.serialize(&mut *self.serializer)?;
-        if !p.fixed_size {
+        self.cur_field += 1;
+        self.cur_offset += p.size;
+
+        // If variable-sized and not the last field, records where it ends
+        let last = self.cur_field == self.num_fields;
+        if !p.fixed_size && !last {
             self.framing_offsets.push(self.cur_offset);
         }
-        self.cur_offset += p.size;
+
         Ok(())
     }
 
@@ -56,13 +63,13 @@ where
         };
 
         // Non-fixed size
-        let len = self.framing_offsets.len();
         let size = self.framing_offsets.last().cloned().unwrap();
         if size > <u8>::max_value() as usize {
             return Err(Self::Error::custom("unsupported"));
         }
-        for off in &self.framing_offsets[0..len - 1] {
-            self.serializer.writer.write_u8(*off as u8)?;
+
+        for off in self.framing_offsets {
+            self.serializer.writer.write_u8(off as u8)?;
         }
         let p = Properties {
             fixed_size: false,
@@ -385,6 +392,7 @@ where
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
         let s = Self::SerializeStruct {
+            cur_field: 0,
             cur_offset: 0,
             framing_offsets: vec![],
             name: name.to_string(),
