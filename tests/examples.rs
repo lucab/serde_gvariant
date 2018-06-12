@@ -43,15 +43,15 @@ fn test_struct() {
         first: String,
         second: i32,
     };
-    let encoded: Vec<u8> = vec![b'f', b'o', b'o', 0x00, 0xff, 0xff, 0xff, 0xff];
+    let encoded: Vec<u8> = vec![b'f', b'o', b'o', 0x00, 0xff, 0xff, 0xff, 0xff, 0x04];
     let decoded = TestType {
         first: "foo".to_string(),
         second: -1,
     };
     let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("fixed struct ser");
-    //let de: TestType = serde_gvariant::from_slice(&encoded[..]).expect("fixed struct de");
+    let de: TestType = serde_gvariant::from_slice(&encoded[..]).expect("fixed struct de");
     assert_eq!(ser, encoded);
-    //assert_eq!(de, decoded);
+    assert_eq!(de, decoded);
 }
 
 #[test]
@@ -67,9 +67,9 @@ fn test_simple_struct() {
         second: 0x80,
     };
     let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("fixed struct ser");
-    //let de: TestType = serde_gvariant::from_slice(&encoded[..]).expect("fixed struct de");
+    let de: TestType = serde_gvariant::from_slice(&encoded[..]).expect("fixed struct de");
     assert_eq!(ser, encoded);
-    //assert_eq!(de, decoded);
+    assert_eq!(de, decoded);
 }
 
 #[test]
