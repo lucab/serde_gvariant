@@ -374,8 +374,8 @@ where
 
     forward_to_deserialize_any! {
             char str enum bytes byte_buf
-            unit unit_struct seq tuple tuple_struct map
-            option newtype_struct struct
+            unit unit_struct tuple tuple_struct map
+            option newtype_struct
     }
 
     // Fixed size
@@ -510,6 +510,51 @@ where
             v
         };
         Ok(value)
+    }
+
+    fn deserialize_seq<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
+        self.reader.seek(io::SeekFrom::End(-1))?;
+        let end = self.reader.read_u8()? as u64;
+        self.reader.seek(io::SeekFrom::Start(cur))?;
+        let buflen = (end - cur) as usize;
+        let mut buf = Vec::with_capacity(buflen);
+        unsafe { buf.set_len(buflen) };
+        self.reader.read_exact(&mut buf).chain_err(|| "seq seq")?;
+        let mut top = Deserializer {
+            reader: buf.as_slice(),
+            options: self.options.clone(),
+        };
+        let v = top.deserialize_seq(visitor)?;
+        Ok(v)
+    }
+
+    fn deserialize_struct<V>(
+        self,
+        name: &'static str,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
+        self.reader.seek(io::SeekFrom::End(-1))?;
+        let end = self.reader.read_u8()? as u64;
+        self.reader.seek(io::SeekFrom::Start(cur))?;
+        let buflen = (end - cur) as usize;
+        let mut buf = Vec::with_capacity(buflen);
+        unsafe { buf.set_len(buflen) };
+        self.reader.read_exact(&mut buf).chain_err(|| "seq seq")?;
+        let mut top = Deserializer {
+            reader: buf.as_slice(),
+            options: self.options.clone(),
+        };
+        let v = top.deserialize_struct(name, fields, visitor)?;
+        Ok(v)
     }
 }
 
