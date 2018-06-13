@@ -37,13 +37,6 @@ where
         visitor.visit_bool(res)
     }
 
-    fn deserialize_char<V>(self, _visitor: V) -> errors::Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        Err(Self::Error::custom("unsupported"))
-    }
-
     fn deserialize_i8<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -151,14 +144,6 @@ where
         visitor.visit_f64(res)
     }
 
-    fn deserialize_str<V>(self, _visitor: V) -> errors::Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        // TODO(lucab): investigate borrowing.
-        Err(Self::Error::custom("unsupported"))
-    }
-
     fn deserialize_string<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -173,15 +158,8 @@ where
             buf.push(byte);
         }
         let res = String::from_utf8_lossy(&buf).into_owned();
+        trace!("got string: len={}", buf.len());
         visitor.visit_string(res)
-    }
-
-    fn deserialize_bytes<V>(self, _visitor: V) -> errors::Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        // TODO(lucab): investigate borrowing.
-        Err(Self::Error::custom("unsupported"))
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> errors::Result<V::Value>
@@ -217,30 +195,6 @@ where
         }
     }
 
-    fn deserialize_unit<V>(self, visitor: V) -> errors::Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        let byte = self.reader.read_u8()?;
-        if byte != 0x00 {
-            return Err(Self::Error::custom("wrong unit byte"));
-        }
-        visitor.visit_unit()
-    }
-    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> errors::Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_unit(visitor)
-    }
-
-    fn deserialize_newtype_struct<V>(self, _name: &str, visitor: V) -> errors::Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        visitor.visit_newtype_struct(self)
-    }
-
     fn deserialize_seq<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -255,13 +209,6 @@ where
         visitor.visit_seq(&mut sub)
     }
 
-    fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> errors::Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        Err(Self::Error::custom("unsupported"))
-    }
-
     fn deserialize_tuple_struct<V>(
         self,
         _name: &'static str,
@@ -272,13 +219,6 @@ where
         V: de::Visitor<'de>,
     {
         self.deserialize_seq(visitor)
-    }
-
-    fn deserialize_map<V>(self, _visitor: V) -> errors::Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        Err(Self::Error::custom("unsupported"))
     }
 
     fn deserialize_struct<V>(
@@ -296,7 +236,7 @@ where
             cur_field: 0,
             end: end as u64,
             _name: name,
-            num_fields: fields.len(),
+            fields: fields,
             options: self.options.clone(),
             reader: io::Cursor::new(buf),
         };
@@ -316,6 +256,7 @@ where
     }
 
     forward_to_deserialize_any! {
-            identifier ignored_any
+            identifier ignored_any map tuple char
+            unit unit_struct newtype_struct bytes str
     }
 }

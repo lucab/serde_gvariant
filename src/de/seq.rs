@@ -30,8 +30,9 @@ where
 
         // Deserialize next element
         let mut seq_de = SeqDeserializer {
-            reader: &mut self.reader,
+            end: &mut self.end,
             options: self.options.clone(),
+            reader: &mut self.reader,
         };
         let v = de::DeserializeSeed::deserialize(seed, &mut seq_de)?;
         Ok(Some(v))
@@ -40,12 +41,13 @@ where
 
 // A Deserializer specialized on array, with custom logic
 // for non-fized-size ones.
-pub(crate) struct SeqDeserializer<RS> {
+pub(crate) struct SeqDeserializer<'a, RS> {
+    pub(crate) end: &'a mut u64,
     pub(crate) options: config::Config,
     pub(crate) reader: RS,
 }
 
-impl<'de, 'a, RS> de::Deserializer<'de> for &'a mut SeqDeserializer<RS>
+impl<'de, 'a, RS> de::Deserializer<'de> for &'a mut SeqDeserializer<'a, RS>
 where
     RS: io::Read + io::Seek,
 {
@@ -209,6 +211,7 @@ where
         let cur = self.reader.seek(io::SeekFrom::Current(0))?;
         self.reader.seek(io::SeekFrom::End(-1))?;
         let end = self.reader.read_u8()? as u64;
+        *self.end = self.end.saturating_sub(1);
         self.reader.seek(io::SeekFrom::Start(cur))?;
         let buflen = (end - cur) as usize;
         let mut buf = Vec::with_capacity(buflen);
@@ -234,6 +237,7 @@ where
         let cur = self.reader.seek(io::SeekFrom::Current(0))?;
         self.reader.seek(io::SeekFrom::End(-1))?;
         let end = self.reader.read_u8()? as u64;
+        *self.end = self.end.saturating_sub(1);
         self.reader.seek(io::SeekFrom::Start(cur))?;
         let buflen = (end - cur) as usize;
         let mut buf = Vec::with_capacity(buflen);

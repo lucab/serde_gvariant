@@ -10,7 +10,7 @@ pub(crate) struct StructDeAccess<RS> {
     pub(crate) cur_field: usize,
     pub(crate) end: u64,
     pub(crate) _name: &'static str,
-    pub(crate) num_fields: usize,
+    pub(crate) fields: &'static [&'static str],
     pub(crate) options: config::Config,
     pub(crate) reader: RS,
 }
@@ -26,7 +26,8 @@ where
         T: de::DeserializeSeed<'de>,
     {
         // Stop when all fields are done
-        if self.cur_field >= self.num_fields {
+        if self.cur_field >= self.fields.len() {
+            trace!("struct done: name={}, fields={}", self._name, self.fields.len());
             return Ok(None);
         }
 
@@ -35,7 +36,7 @@ where
             let mut seq_de = StructDeserializer {
                 cur_field: &self.cur_field,
                 end: &mut self.end,
-                num_fields: &self.num_fields,
+                fields: self.fields,
                 reader: &mut self.reader,
                 options: self.options.clone(),
             };
@@ -52,7 +53,7 @@ where
 pub(crate) struct StructDeserializer<'a, RS> {
     pub(crate) cur_field: &'a usize,
     pub(crate) end: &'a mut u64,
-    pub(crate) num_fields: &'a usize,
+    pub(crate) fields: &'static [&'static str],
     pub(crate) options: config::Config,
     pub(crate) reader: RS,
 }
@@ -196,7 +197,17 @@ where
         V: de::Visitor<'de>,
     {
         let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        let end = if (*self.cur_field + 1) >= *self.num_fields {
+        if self.end.saturating_sub(cur) == 0 {
+            let buf = vec![0x00];
+            trace!("empty string");
+            let mut top = TopDeserializer {
+                reader: buf.as_slice(),
+                options: self.options.clone(),
+            };
+            return top.deserialize_string(visitor);
+        };
+
+        let end = if self.cur_field.saturating_add(1) >= self.fields.len() {
             *self.end as u64
         } else {
             self.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
@@ -224,8 +235,20 @@ where
         V: de::Visitor<'de>,
     {
         let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        let end = if (*self.cur_field + 1) >= *self.num_fields {
-            *self.end as u64
+        if self.end.saturating_sub(cur) == 0 {
+            let buf = vec![];
+            trace!("empty seq");
+            let mut top = TopDeserializer {
+                reader: buf.as_slice(),
+                options: self.options.clone(),
+            };
+            return top.deserialize_seq(visitor);
+        };
+
+        let end = if self.cur_field.saturating_add(1) >= self.fields.len() {
+            let val = *self.end as u64;
+            *self.end -= 1;
+            val
         } else {
             self.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
             let val = self.reader.read_u8().chain_err(|| "struct seq len")?;
