@@ -40,7 +40,7 @@ where
                 reader: &mut self.reader,
                 options: self.options.clone(),
             };
-            // eprintln!("struct: name={}, cur={}, fields={}, end={}", self._name, seq_de.cur_field, seq_de.num_fields, seq_de.end);
+            trace!("next field: name={}, field={}, end={}", self._name, self.fields[self.cur_field], seq_de.end);
             de::DeserializeSeed::deserialize(seed, &mut seq_de)?
         };
         self.cur_field += 1;
@@ -217,6 +217,7 @@ where
             val as u64
         };
         let buflen = (end - cur) as usize;
+        trace!("string: len={}", buflen);
         let mut buf = Vec::with_capacity(buflen);
         unsafe { buf.set_len(buflen) };
         self.reader
@@ -257,6 +258,7 @@ where
             val as u64
         };
         let buflen = (end - cur) as usize;
+        trace!("seq: len={}", buflen);
         let mut buf = Vec::with_capacity(buflen);
         unsafe { buf.set_len(buflen) };
         self.reader.read_exact(&mut buf).chain_err(|| "struct seq")?;
@@ -264,6 +266,7 @@ where
             reader: buf.as_slice(),
             options: self.options.clone(),
         };
+        trace!("seq: cur={}, end={}", cur, end);
         let v = top.deserialize_seq(visitor)?;
         Ok(v)
     }

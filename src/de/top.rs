@@ -34,6 +34,7 @@ where
             0 => false,
             _ => true,
         };
+        trace!("got bool: {}", res);
         visitor.visit_bool(res)
     }
 
@@ -206,6 +207,7 @@ where
             options: self.options.clone(),
             reader: io::Cursor::new(buf),
         };
+        trace!("seq: buflen={}", sub.end);
         visitor.visit_seq(&mut sub)
     }
 
@@ -218,6 +220,7 @@ where
     where
         V: de::Visitor<'de>,
     {
+        trace!("tuple_struct -> seq");
         self.deserialize_seq(visitor)
     }
 
@@ -240,6 +243,7 @@ where
             options: self.options.clone(),
             reader: io::Cursor::new(buf),
         };
+        trace!("StructDe: name={}, cur={}, num_fields={}, end={}", name, 0, fields.len(), sub.end);
         visitor.visit_seq(&mut sub)
     }
 
