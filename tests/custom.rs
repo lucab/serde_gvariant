@@ -15,28 +15,6 @@ fn test_bytes_buf() {
 }
 
 #[test]
-fn test_unit() {
-    let encoded: Vec<u8> = vec![0x00];
-    let decoded = ();
-    let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("unit ser");
-    let de: () = serde_gvariant::from_slice(&encoded[..]).expect("unit de");
-    assert_eq!(ser, encoded);
-    assert_eq!(de, decoded);
-}
-
-#[test]
-fn test_unit_struct() {
-    #[derive(Debug, Deserialize, Serialize, PartialEq)]
-    struct TestType;
-    let encoded: Vec<u8> = vec![0x00];
-    let decoded = TestType {};
-    let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("unit struct ser");
-    let de: TestType = serde_gvariant::from_slice(&encoded[..]).expect("unit struct de");
-    assert_eq!(ser, encoded);
-    assert_eq!(de, decoded);
-}
-
-#[test]
 fn test_option() {
     {
         let encoded: Vec<u8> = vec![];
