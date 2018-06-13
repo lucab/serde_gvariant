@@ -1,8 +1,8 @@
 //! Serialization library for GVariant format.
 //!
-//! Through the [serde](serde) serialization framework, this crate provides
+//! Through the [serde][serde] serialization framework, this crate provides
 //! for reading and writing complex data structures recorded in
-//! [GVariant](gvariant) binary format.
+//! [GVariant][gvariant] binary format.
 //!
 //! [serde]: https://serde.rs/
 //! [gvariant]: https://developer.gnome.org/glib/stable/glib-GVariant.html
