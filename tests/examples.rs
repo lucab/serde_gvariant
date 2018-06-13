@@ -84,7 +84,7 @@ fn test_array_bytes_example() {
 
 #[test]
 fn test_array_integers_example() {
-    let encoded: Vec<u8> = vec![0x04, 0x00, 0x00,0x00, 0x02, 0x01, 0x00, 0x00];
+    let encoded: Vec<u8> = vec![0x04, 0x00, 0x00, 0x00, 0x02, 0x01, 0x00, 0x00];
     let decoded: Vec<u32> = vec![4, 258];
     //let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("ab ser");
     let de: Vec<u32> = serde_gvariant::from_slice(&encoded[..]).expect("ab de");
