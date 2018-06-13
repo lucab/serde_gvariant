@@ -23,15 +23,17 @@ where
     {
         // Stop if EOF is reached
         let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        // eprintln!("seq: cur={}, end={}", cur, self.end);
         if cur == self.end {
+            trace!("got seq: len={}", self.end);
             return Ok(None);
         }
 
         // Deserialize next element
+        trace!("next seq: cur={}, end={}", cur, self.end);
         let mut seq_de = SeqDeserializer {
-            reader: &mut self.reader,
+            end: &mut self.end,
             options: self.options.clone(),
+            reader: &mut self.reader,
         };
         let v = de::DeserializeSeed::deserialize(seed, &mut seq_de)?;
         Ok(Some(v))
@@ -40,12 +42,13 @@ where
 
 // A Deserializer specialized on array, with custom logic
 // for non-fized-size ones.
-pub(crate) struct SeqDeserializer<RS> {
+pub(crate) struct SeqDeserializer<'a, RS> {
+    pub(crate) end: &'a mut u64,
     pub(crate) options: config::Config,
     pub(crate) reader: RS,
 }
 
-impl<'de, 'a, RS> de::Deserializer<'de> for &'a mut SeqDeserializer<RS>
+impl<'de, 'a, RS> de::Deserializer<'de> for &'a mut SeqDeserializer<'a, RS>
 where
     RS: io::Read + io::Seek,
 {
@@ -188,6 +191,7 @@ where
         let end = self.reader.read_u8()? as u64;
         self.reader.seek(io::SeekFrom::Start(cur))?;
         let buflen = (end - cur) as usize;
+        trace!("string: len={}", buflen);
         let mut buf = Vec::with_capacity(buflen);
         unsafe { buf.set_len(buflen) };
         self.reader.read_exact(&mut buf).chain_err(|| "seq string")?;
@@ -209,8 +213,10 @@ where
         let cur = self.reader.seek(io::SeekFrom::Current(0))?;
         self.reader.seek(io::SeekFrom::End(-1))?;
         let end = self.reader.read_u8()? as u64;
+        *self.end = self.end.saturating_sub(1);
         self.reader.seek(io::SeekFrom::Start(cur))?;
         let buflen = (end - cur) as usize;
+        trace!("seq: len={}", buflen);
         let mut buf = Vec::with_capacity(buflen);
         unsafe { buf.set_len(buflen) };
         self.reader.read_exact(&mut buf).chain_err(|| "seq seq")?;
@@ -234,8 +240,10 @@ where
         let cur = self.reader.seek(io::SeekFrom::Current(0))?;
         self.reader.seek(io::SeekFrom::End(-1))?;
         let end = self.reader.read_u8()? as u64;
+        *self.end = self.end.saturating_sub(1);
         self.reader.seek(io::SeekFrom::Start(cur))?;
         let buflen = (end - cur) as usize;
+        trace!("struct: len={}", buflen);
         let mut buf = Vec::with_capacity(buflen);
         unsafe { buf.set_len(buflen) };
         self.reader.read_exact(&mut buf).chain_err(|| "seq seq")?;
