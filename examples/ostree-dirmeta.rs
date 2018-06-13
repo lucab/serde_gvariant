@@ -1,3 +1,5 @@
+extern crate env_logger;
+extern crate log;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_gvariant;
@@ -26,6 +28,12 @@ struct OstreeXattr {
 }
 
 fn main() -> errors::Result<()> {
+    // Setup logging
+    env_logger::Builder::new()
+        .default_format_timestamp(false)
+    // .filter(Some("serde_gvariant"), log::LevelFilter::Trace)
+        .init();
+
     // First parameter is target dirmeta file (optional, default: fixtures sample)
     let sample = "tests/fixtures/ostree/basic-01.dirmeta".to_string();
     let input = std::env::args().nth(1).unwrap_or(sample);
