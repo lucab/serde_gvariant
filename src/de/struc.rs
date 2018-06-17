@@ -218,8 +218,7 @@ where
         };
         let buflen = (end - cur) as usize;
         trace!("string: len={}", buflen);
-        let mut buf = Vec::with_capacity(buflen);
-        unsafe { buf.set_len(buflen) };
+        let mut buf = vec![0u8; buflen];
         self.reader
             .read_exact(&mut buf)
             .chain_err(|| "struct string")?;
@@ -259,8 +258,7 @@ where
         };
         let buflen = (end - cur) as usize;
         trace!("seq: len={}", buflen);
-        let mut buf = Vec::with_capacity(buflen);
-        unsafe { buf.set_len(buflen) };
+        let mut buf = vec![0u8; buflen];
         self.reader.read_exact(&mut buf).chain_err(|| "struct seq")?;
         let mut top = TopDeserializer {
             reader: buf.as_slice(),
