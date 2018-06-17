@@ -36,7 +36,7 @@ where
         let mut buf: Vec<u8> = Vec::new();
         let _len = self.reader.read_to_end(&mut buf)?;
         let mut top = TopDeserializer {
-            reader: buf.as_slice(),
+            reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
         top.deserialize_bool(visitor)
@@ -49,7 +49,7 @@ where
         let mut buf: Vec<u8> = Vec::new();
         let _len = self.reader.read_to_end(&mut buf)?;
         let mut top = TopDeserializer {
-            reader: buf.as_slice(),
+            reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
         top.deserialize_u8(visitor)
@@ -62,7 +62,7 @@ where
         let mut buf: Vec<u8> = Vec::new();
         let _len = self.reader.read_to_end(&mut buf)?;
         let mut top = TopDeserializer {
-            reader: buf.as_slice(),
+            reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
         top.deserialize_i8(visitor)
@@ -75,7 +75,7 @@ where
         let mut buf: Vec<u8> = Vec::new();
         let _len = self.reader.read_to_end(&mut buf)?;
         let mut top = TopDeserializer {
-            reader: buf.as_slice(),
+            reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
         top.deserialize_u16(visitor)
@@ -88,7 +88,7 @@ where
         let mut buf: Vec<u8> = Vec::new();
         let _len = self.reader.read_to_end(&mut buf)?;
         let mut top = TopDeserializer {
-            reader: buf.as_slice(),
+            reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
         top.deserialize_i16(visitor)
@@ -101,7 +101,7 @@ where
         let mut buf: Vec<u8> = Vec::new();
         let _len = self.reader.read_to_end(&mut buf)?;
         let mut top = TopDeserializer {
-            reader: buf.as_slice(),
+            reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
         top.deserialize_u32(visitor)
@@ -114,7 +114,7 @@ where
         let mut buf: Vec<u8> = Vec::new();
         let _len = self.reader.read_to_end(&mut buf)?;
         let mut top = TopDeserializer {
-            reader: buf.as_slice(),
+            reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
         top.deserialize_i32(visitor)
@@ -127,7 +127,7 @@ where
         let mut buf: Vec<u8> = Vec::new();
         let _len = self.reader.read_to_end(&mut buf)?;
         let mut top = TopDeserializer {
-            reader: buf.as_slice(),
+            reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
         top.deserialize_u64(visitor)
@@ -140,7 +140,7 @@ where
         let mut buf: Vec<u8> = Vec::new();
         let _len = self.reader.read_to_end(&mut buf)?;
         let mut top = TopDeserializer {
-            reader: buf.as_slice(),
+            reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
         top.deserialize_i64(visitor)
@@ -153,7 +153,7 @@ where
         let mut buf: Vec<u8> = Vec::new();
         let _len = self.reader.read_to_end(&mut buf)?;
         let mut top = TopDeserializer {
-            reader: buf.as_slice(),
+            reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
         top.deserialize_f64(visitor)
@@ -171,7 +171,7 @@ where
         }
 
         let mut top = TopDeserializer {
-            reader: buf.as_slice(),
+            reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
         top.deserialize_string(visitor)
@@ -189,7 +189,7 @@ where
         }
 
         let mut top = TopDeserializer {
-            reader: buf.as_slice(),
+            reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
         top.deserialize_byte_buf(visitor)

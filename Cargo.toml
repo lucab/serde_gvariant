@@ -5,13 +5,14 @@ authors = ["Luca Bruno <luca.bruno@coreos.com>"]
 
 [dependencies]
 byteorder = "1"
-log = "0.4"
-serde = "1"
 error-chain = {version = "0.11", default-features = false}
+log = "0.4"
+ordered-float = "0.5"
+serde = "1"
+serde_derive = "1"
 
 
 [dev-dependencies]
 env_logger = "0.5"
 proptest = "0.7"
 serde_bytes = "0.10"
-serde_derive = "1"

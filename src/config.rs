@@ -1,6 +1,7 @@
 use errors::{self, ResultExt};
 use serde;
 use std::io;
+use variant;
 
 /// A configuration object whose settings will be used while
 /// serializing and deserializing.
@@ -46,7 +47,7 @@ impl Config {
         &self,
         bytes: &'a [u8],
     ) -> errors::Result<T> {
-        let reader = io::BufReader::with_capacity(bytes.len(), bytes);
+        let reader = io::Cursor::new(bytes);
         let mut deserializer = ::de::Deserializer {
             reader,
             options: self.clone(),
@@ -56,7 +57,7 @@ impl Config {
     }
 
     /// Deserializes an object directly from a `Read`er using this configuration
-    pub fn deserialize_reader<R: io::Read, T: serde::de::DeserializeOwned>(
+    pub fn deserialize_reader<R: io::Read + io::Seek, T: serde::de::DeserializeOwned>(
         &self,
         reader: R,
     ) -> errors::Result<T> {
@@ -67,5 +68,22 @@ impl Config {
         };
         serde::Deserialize::deserialize(&mut deserializer)
             .chain_err(|| "failed to deserialize reader")
+    }
+
+    pub fn deserialize_variant<T>(&self, value: variant::Variant) -> errors::Result<T>
+    where
+        T: serde::de::DeserializeOwned
+    {
+        let mut serializer = ::ser::Serializer {
+            writer: io::Cursor::new(vec![]),
+            options: self.clone(),
+        };
+        serde::Serialize::serialize(&value, &mut serializer).chain_err(|| "failed to serialize value")?;
+        let mut deserializer = ::de::Deserializer {
+            reader: serializer.writer,
+            options: self.clone(),
+        };
+        serde::Deserialize::deserialize(&mut deserializer)
+            .chain_err(|| "failed to deserialize value")
     }
 }

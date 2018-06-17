@@ -22,20 +22,28 @@
 //! }
 //! ```
 
+// error-chain: lint unused_doc_comment has been renamed
+#![allow(renamed_and_removed_lints)]
+
 extern crate byteorder;
 #[macro_use]
 extern crate error_chain;
+extern crate ordered_float;
 #[macro_use]
 extern crate log;
 #[macro_use]
 extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 
 mod config;
 mod de;
 pub mod errors;
 mod ser;
+mod variant;
 
 pub use config::Config;
+pub use variant::Variant;
 
 /// Get a default configuration object.
 ///
@@ -57,7 +65,7 @@ where
 /// Deserializes an object directly from a `Read`er using the default configuration.
 pub fn from_reader<R, T>(reader: R) -> errors::Result<T>
 where
-    R: std::io::Read,
+    R: std::io::Read + std::io::Seek,
     T: serde::de::DeserializeOwned,
 {
     config().deserialize_reader(reader)
