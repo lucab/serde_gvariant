@@ -40,8 +40,12 @@ where
     {
         // Serialize this field
         let p = value.serialize(&mut *self.serializer)?;
-        self.cur_field += 1;
-        self.cur_offset += p.size;
+        self.cur_field = self.cur_field
+            .checked_add(1)
+            .ok_or_else(|| Self::Error::custom("field count overflowed"))?;
+        self.cur_offset = self.cur_offset
+            .checked_add(p.size)
+            .ok_or_else(|| Self::Error::custom("current offset overflowed"))?;
 
         // If variable-sized and not the last field, records where it ends
         let last = self.cur_field == self.num_fields;
@@ -288,7 +292,9 @@ where
     }
 
     fn serialize_str(self, v: &str) -> errors::Result<Self::Ok> {
-        let len = v.len() + 1;
+        let len = v.len()
+            .checked_add(1)
+            .ok_or_else(|| Self::Error::custom("string length overflowed"))?;
         for b in v.as_bytes() {
             self.writer
                 .write_u8(*b)
@@ -350,7 +356,9 @@ where
         if !prop.fixed_size {
             let terminator = 0u8;
             terminator.serialize(&mut first)?;
-            prop.size += 1;
+            prop.size = prop.size
+                .checked_add(1)
+                .ok_or_else(|| Self::Error::custom("option-some length overflowed"))?;
         };
         self.writer.write(&first.writer)?;
         Ok(prop)
@@ -372,20 +380,6 @@ where
         Err(Self::Error::custom("unsupported"))
     }
 
-    fn serialize_tuple_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        Err(Self::Error::custom("unsupported"))
-    }
-
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        Err(Self::Error::custom("unsupported"))
-    }
-
     fn serialize_struct(
         self,
         name: &'static str,
@@ -402,6 +396,20 @@ where
         Ok(s)
     }
 
+    fn serialize_tuple_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleVariant, Self::Error> {
+        Err(Self::Error::custom("unsupported: tuple variant"))
+    }
+
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+        Err(Self::Error::custom("unsupported: map"))
+    }
+
     fn serialize_struct_variant(
         self,
         _name: &'static str,
@@ -409,7 +417,7 @@ where
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        Err(Self::Error::custom("unsupported"))
+        Err(Self::Error::custom("unsupported: struct variant"))
     }
 
     fn serialize_newtype_struct<T: ?Sized>(
@@ -420,7 +428,7 @@ where
     where
         T: ser::Serialize,
     {
-        Err(Self::Error::custom("unsupported"))
+        Err(Self::Error::custom("unsupported: newtype struct"))
     }
 
     fn serialize_newtype_variant<T: ?Sized>(
@@ -433,7 +441,7 @@ where
     where
         T: ser::Serialize,
     {
-        Err(Self::Error::custom("unsupported"))
+        Err(Self::Error::custom("unsupported: newtype variant"))
     }
 
     fn serialize_unit_variant(
@@ -442,6 +450,6 @@ where
         _variant_index: u32,
         _variant: &'static str,
     ) -> errors::Result<Self::Ok> {
-        Err(Self::Error::custom("unsupported"))
+        Err(Self::Error::custom("unsupported: unit variant"))
     }
 }
