@@ -81,4 +81,11 @@ proptest! {
         let decoded: String = serde_gvariant::from_slice(&encoded[..])?;
         prop_assert_eq!(input, &decoded);
     }
+
+    #[test]
+    fn testprop_nonpanic_variant(ref bytes in any::<Vec<u8>>()){
+        use serde_gvariant::errors::Result;
+        use serde_gvariant::Variant;
+        let _decoded: Result<Variant> = serde_gvariant::from_slice(&bytes[..]);
+    }
 }
