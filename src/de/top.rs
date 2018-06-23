@@ -3,18 +3,19 @@ use config;
 use de::seq::SeqDeAccess;
 use de::some::SomeDeserializer;
 use de::struc::StructDeAccess;
+use de::variant::EnumDeAccess;
 use errors::{self, ResultExt};
 use serde::de::{self, Error};
 use std::io;
 
-pub(crate) struct TopDeserializer<R> {
-    pub(crate) reader: R,
+pub(crate) struct TopDeserializer<RS> {
+    pub(crate) reader: RS,
     pub(crate) options: config::Config,
 }
 
-impl<'de, 'a, R> de::Deserializer<'de> for &'a mut TopDeserializer<R>
+impl<'de, 'a, RS> de::Deserializer<'de> for &'a mut TopDeserializer<RS>
 where
-    R: io::Read,
+    RS: io::Read + io::Seek,
 {
     type Error = errors::Error;
 
@@ -22,7 +23,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        Err(Self::Error::custom("unsupported"))
+        Err(Self::Error::custom("top: any not supported"))
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> errors::Result<V::Value>
@@ -189,7 +190,7 @@ where
                 let mut sub = SomeDeserializer {
                     _len: len,
                     options: self.options.clone(),
-                    reader: buf.as_slice(),
+                    reader: io::Cursor::new(buf),
                 };
                 visitor.visit_some(&mut sub)
             }
@@ -201,27 +202,46 @@ where
         V: de::Visitor<'de>,
     {
         let mut buf: Vec<u8> = Vec::new();
-        let end = self.reader.read_to_end(&mut buf)?;
+        let length = self.reader.read_to_end(&mut buf)?;
+        trace!("seq: buflen={}", length);
+        let fstart = buf.last().cloned().unwrap_or(0) as u64;
         let mut sub = SeqDeAccess {
-            end: end as u64,
+            seq_framing_start: fstart,
+            seq_fixed_width: true,
+            seq_length: length as u64,
             options: self.options.clone(),
             reader: io::Cursor::new(buf),
         };
-        trace!("seq: buflen={}", sub.end);
         visitor.visit_seq(&mut sub)
+    }
+
+    fn deserialize_tuple<V>(self, len: usize, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        trace!("tuple -> tuple_struct");
+        self.deserialize_tuple_struct("tuple", len, visitor)
     }
 
     fn deserialize_tuple_struct<V>(
         self,
-        _name: &'static str,
-        _len: usize,
+        name: &'static str,
+        len: usize,
         visitor: V,
     ) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
         trace!("tuple_struct -> seq");
-        self.deserialize_seq(visitor)
+        if len > 32 {
+            bail!("too many fields in tuple");
+        }
+        let syn_fields = &[
+            "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15",
+            "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29",
+            "30", "31",
+        ];
+        self.deserialize_struct(name, &syn_fields[..len], visitor)
     }
 
     fn deserialize_struct<V>(
@@ -243,24 +263,91 @@ where
             options: self.options.clone(),
             reader: io::Cursor::new(buf),
         };
-        trace!("StructDe: name={}, cur={}, num_fields={}, end={}", name, 0, fields.len(), sub.end);
+        trace!(
+            "StructDe: name={}, cur={}, num_fields={}, end={}",
+            name,
+            0,
+            fields.len(),
+            sub.end
+        );
         visitor.visit_seq(&mut sub)
     }
 
     fn deserialize_enum<V>(
         self,
-        _enum: &'static str,
-        _variants: &'static [&'static str],
-        _visitor: V,
+        enumer: &'static str,
+        variants: &'static [&'static str],
+        visitor: V,
     ) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Self::Error::custom("unsupported"))
+        let mut buf: Vec<u8> = Vec::new();
+        let mut sig: Vec<u8> = Vec::new();
+        let mut length = self.reader.read_to_end(&mut buf)?;
+        while let Some(charsig) = buf.pop() {
+            length = length.saturating_sub(1);
+            if charsig == 0x00 {
+                break;
+            }
+            sig.insert(0, charsig);
+        }
+        trace!(
+            "EnumDe: name={}, sig={}, length={}",
+            enumer,
+            String::from_utf8_lossy(&sig),
+            length
+        );
+//        return Err(Self::Error::custom(format!(
+//            "top: signature {}",
+//            String::from_utf8_lossy(&sig)
+//        )));
+
+        let mut sub = EnumDeAccess {
+            cur_field: 0,
+            end: length as u64,
+            name: enumer,
+            variants: variants,
+            options: self.options.clone(),
+            reader: io::Cursor::new(buf),
+            signature: sig,
+            seq_fixed_width: true,
+            seq_framing_start: 0,
+            seq_length: 0,
+        };
+        visitor.visit_enum(&mut sub)
+    }
+
+    fn deserialize_unit_struct<V>(
+        self,
+        _name: &'static str,
+        _visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(Self::Error::custom("top: unit_struct not supported"))
+    }
+
+    fn deserialize_newtype_struct<V>(
+        self,
+        _name: &'static str,
+        _visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(Self::Error::custom("top: newtype_struct not supported"))
+    }
+
+    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(Self::Error::custom("top: unit not supported"))
     }
 
     forward_to_deserialize_any! {
-            identifier ignored_any map tuple char
-            unit unit_struct newtype_struct bytes str
+            identifier ignored_any map char bytes str
     }
 }
