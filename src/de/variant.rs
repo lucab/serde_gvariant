@@ -341,7 +341,6 @@ where
     where
         V: de::Visitor<'de>,
     {
-
         if *self.seq_length == 0 {
             let mut buf: Vec<u8> = Vec::new();
             let buflen = self.reader.read_to_end(&mut buf)?;
@@ -360,7 +359,13 @@ where
             let end = self.reader.read_u8()? as u64;
             *self.seq_framing_start = self.seq_framing_start.saturating_add(1);
             let buflen = (end - start) as usize;
-            trace!("string: start={}, end={}, buflen={}, fs={}", start, end, buflen, self.seq_framing_start);
+            trace!(
+                "string: start={}, end={}, buflen={}, fs={}",
+                start,
+                end,
+                buflen,
+                self.seq_framing_start
+            );
 
             self.reader.seek(io::SeekFrom::Start(start))?;
             let mut buf = vec![0u8; buflen];
@@ -384,7 +389,12 @@ where
         *self.seq_framing_start = fstart;
         trace!("seq: buflen={}, framing_start={}", length, fstart);
 
-        let fixed = match self.signature[1] {
+        let next_sig = self.signature
+            .get(1)
+            .cloned()
+            .ok_or_else(|| Self::Error::custom("array element type missing from signature"))?;
+
+        let fixed = match next_sig {
             b'y' => true,
             b'b' => true,
             _ => false,
