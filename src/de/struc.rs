@@ -480,7 +480,7 @@ where
                 reader: io::Cursor::new(buf),
                 options: self.options.clone(),
             };
-            return top.deserialize_seq(visitor);
+            return top.deserialize_enum(enumer, variants, visitor);
         };
 
         let end = if self.cur_field.saturating_add(1) >= self.fields.len() {
