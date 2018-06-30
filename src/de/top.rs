@@ -1,16 +1,33 @@
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use config;
-use de::seq::SeqDeAccess;
-use de::some::SomeDeserializer;
-use de::struc::StructDeAccess;
-use de::variant::EnumDeAccess;
+use de::cursor::CursorDeserializer;
 use errors;
 use serde::de::{self, Error};
 use std::io;
 
+#[derive(Debug)]
 pub(crate) struct TopDeserializer<RS> {
     pub(crate) reader: RS,
     pub(crate) options: config::Config,
+}
+
+impl<'a, RS> TopDeserializer<RS>
+where
+    RS: io::Read + io::Seek,
+{
+    pub(crate) fn forward(&'a mut self, kind: &'static str) -> errors::Result<CursorDeserializer<'a, RS>> {
+        let start = self.reader.seek(io::SeekFrom::Current(0))?;
+        let end = self.reader.seek(io::SeekFrom::End(0))?;
+        let _cur = self.reader.seek(io::SeekFrom::Start(start))?;
+        let _buflen = end.checked_sub(start)
+            .ok_or_else(|| errors::Error::custom(format!("top: {} length underflow", kind)))?;
+
+        let cd = CursorDeserializer {
+            start,
+            end,
+            top: self,
+        };
+        Ok(cd)
+    }
 }
 
 impl<'de, 'a, RS> de::Deserializer<'de> for &'a mut TopDeserializer<RS>
@@ -30,101 +47,72 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let byte = self.reader.read_u8()?;
-        let res = match byte {
-            0 => false,
-            _ => true,
-        };
-        trace!("got bool: {}", res);
-        visitor.visit_bool(res)
+        let mut cd = self.forward("bool")?;
+        cd.deserialize_bool(visitor)
     }
 
     fn deserialize_i8<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let res = self.reader.read_i8()?;
-        visitor.visit_i8(res)
+        let mut cd = self.forward("i8")?;
+        cd.deserialize_i8(visitor)
     }
 
     fn deserialize_i16<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let res = if self.options.network_endian {
-            self.reader.read_i16::<BigEndian>()?
-        } else {
-            self.reader.read_i16::<LittleEndian>()?
-        };
-        visitor.visit_i16(res)
+        let mut cd = self.forward("i16")?;
+        cd.deserialize_i16(visitor)
     }
 
     fn deserialize_i32<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let res = if self.options.network_endian {
-            self.reader.read_i32::<BigEndian>()?
-        } else {
-            self.reader.read_i32::<LittleEndian>()?
-        };
-        visitor.visit_i32(res)
+        let mut cd = self.forward("i32")?;
+        cd.deserialize_i32(visitor)
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let res = if self.options.network_endian {
-            self.reader.read_i64::<BigEndian>()?
-        } else {
-            self.reader.read_i64::<LittleEndian>()?
-        };
-        visitor.visit_i64(res)
+        let mut cd = self.forward("i64")?;
+        cd.deserialize_i64(visitor)
     }
 
     fn deserialize_u8<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let res = self.reader.read_u8()?;
-        visitor.visit_u8(res)
+        let mut cd = self.forward("u8")?;
+        cd.deserialize_u8(visitor)
     }
 
     fn deserialize_u16<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let res = if self.options.network_endian {
-            self.reader.read_u16::<BigEndian>()?
-        } else {
-            self.reader.read_u16::<LittleEndian>()?
-        };
-        visitor.visit_u16(res)
+        let mut cd = self.forward("u16")?;
+        cd.deserialize_u16(visitor)
     }
 
     fn deserialize_u32<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let res = if self.options.network_endian {
-            self.reader.read_u32::<BigEndian>()?
-        } else {
-            self.reader.read_u32::<LittleEndian>()?
-        };
-        visitor.visit_u32(res)
+        let mut cd = self.forward("u32")?;
+        cd.deserialize_u32(visitor)
     }
 
     fn deserialize_u64<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let res = if self.options.network_endian {
-            self.reader.read_u64::<BigEndian>()?
-        } else {
-            self.reader.read_u64::<LittleEndian>()?
-        };
-        visitor.visit_u64(res)
+        let mut cd = self.forward("u64")?;
+        cd.deserialize_u64(visitor)
     }
 
     fn deserialize_f32<V>(self, _visitor: V) -> errors::Result<V::Value>
@@ -138,118 +126,40 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let res = if self.options.network_endian {
-            self.reader.read_f64::<BigEndian>()?
-        } else {
-            self.reader.read_f64::<LittleEndian>()?
-        };
-        visitor.visit_f64(res)
+        let mut cd = self.forward("f64")?;
+        cd.deserialize_f64(visitor)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let start = self.reader.seek(io::SeekFrom::Current(0))?;
-        let end = self.reader.seek(io::SeekFrom::End(0))?;
-        let _cur = self.reader.seek(io::SeekFrom::Start(start))?;
-        let buflen = end.checked_sub(start)
-            .ok_or_else(|| Self::Error::custom("string length underflow"))?
-            as usize;
-        if buflen > self.options.max_string_len {
-            return Err(Self::Error::custom(format!(
-                "top: overlong string, length={}",
-                buflen
-            )));
-        };
-        if buflen == 0 {
-            return visitor.visit_string("".to_string());
-        };
-
-        let mut buf = vec![0; buflen];
-        self.reader.read_exact(&mut buf)?;
-        let strlen = buf.iter()
-            .position(|x| x == &b'\0')
-            .ok_or_else(|| Self::Error::custom("top: non-terminated string"))?;
-        let s = String::from_utf8_lossy(&buf[..strlen]).into_owned();
-        trace!("got string: len={:#x}", buflen);
-        visitor.visit_string(s)
+        let mut cd = self.forward("string")?;
+        cd.deserialize_string(visitor)
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let mut buf: Vec<u8> = Vec::new();
-        let _len = self.reader.read_to_end(&mut buf)?;
-        visitor.visit_byte_buf(buf)
+        let mut cd = self.forward("byte_buf")?;
+        cd.deserialize_byte_buf(visitor)
     }
 
     fn deserialize_option<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let start = self.reader.seek(io::SeekFrom::Current(0))?;
-        let end = self.reader.seek(io::SeekFrom::End(0))?;
-        let _cur = self.reader.seek(io::SeekFrom::Start(start))?;
-        let buflen = end.checked_sub(start)
-            .ok_or_else(|| Self::Error::custom("option length underflow"))?
-            as usize;
-
-        match buflen {
-            // Fixed-Size inner: empty byte sequence.
-            // Non-Fixed-Size inner: empty byte sequence.
-            0 => visitor.visit_none(),
-
-            // Fixed-Size inner: just data.
-            // Non-Fixed-Size inner: data + 0x00.
-            _ => {
-                let mut sub = SomeDeserializer {
-                    _len: buflen,
-                    options: self.options.clone(),
-                    reader: &mut self.reader,
-                };
-                visitor.visit_some(&mut sub)
-            }
-        }
+        let mut cd = self.forward("option")?;
+        cd.deserialize_option(visitor)
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let start = self.reader.seek(io::SeekFrom::Current(0))?;
-        let end = self.reader.seek(io::SeekFrom::End(0))?;
-        let _cur = self.reader.seek(io::SeekFrom::Start(start))?;
-        let buflen = end.checked_sub(start)
-            .ok_or_else(|| Self::Error::custom("array length underflow"))?;
-
-        // If items are variable-sized, record where the last one ends.
-        // That is, where the framing offsets start.
-        let fstart = match buflen {
-            0 => 0u64,
-            _ => {
-                self.reader.seek(io::SeekFrom::End(-1))?;
-                let b = self.reader.read_u8()?;
-                self.reader.seek(io::SeekFrom::Start(start))?;
-                u64::from(b)
-            }
-        };
-
-        trace!(
-            "SeqDe: start={:#x}, end={:#x}, length={:#x}",
-            start,
-            end,
-            buflen,
-        );
-        let mut sub = SeqDeAccess {
-            seq_framing_start: fstart,
-            seq_fixed_width: true,
-            seq_length: buflen,
-            options: self.options.clone(),
-            reader: &mut self.reader,
-        };
-        visitor.visit_seq(&mut sub)
+        let mut cd = self.forward("seq")?;
+        cd.deserialize_seq(visitor)
     }
 
     fn deserialize_tuple<V>(self, len: usize, visitor: V) -> errors::Result<V::Value>
@@ -271,7 +181,7 @@ where
     {
         trace!("tuple_struct -> seq");
         if len > 32 {
-            bail!("too many fields in tuple");
+            bail!("top: too many fields in tuple");
         }
         let syn_fields = &[
             "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15",
@@ -290,29 +200,8 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let start = self.reader.seek(io::SeekFrom::Current(0))?;
-        let end = self.reader.seek(io::SeekFrom::End(0))?;
-        let _cur = self.reader.seek(io::SeekFrom::Start(start))?;
-        let buflen = end.checked_sub(start)
-            .ok_or_else(|| Self::Error::custom("option length underflow"))?;
-
-        trace!(
-            "StructDe: name={}, num_fields={}, start={:#x}, end={:#x}, length={:#x}",
-            name,
-            fields.len(),
-            start,
-            end,
-            buflen,
-        );
-        let mut sub = StructDeAccess {
-            cur_field: 0,
-            end: buflen,
-            _name: name,
-            fields,
-            options: self.options.clone(),
-            reader: &mut self.reader,
-        };
-        visitor.visit_seq(&mut sub)
+        let mut cd = self.forward("struct")?;
+        cd.deserialize_struct(name, fields, visitor)
     }
 
     fn deserialize_enum<V>(
@@ -324,36 +213,8 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let mut buf: Vec<u8> = Vec::new();
-        let mut sig: Vec<u8> = Vec::new();
-        let mut length = self.reader.read_to_end(&mut buf)?;
-        while let Some(charsig) = buf.pop() {
-            length = length.saturating_sub(1);
-            if charsig == 0x00 {
-                break;
-            }
-            sig.insert(0, charsig);
-        }
-        trace!(
-            "EnumDe: name={}, sig={}, length={}",
-            name,
-            String::from_utf8_lossy(&sig),
-            length
-        );
-
-        let mut sub = EnumDeAccess {
-            cur_field: 0,
-            end: length as u64,
-            name,
-            variants,
-            options: self.options.clone(),
-            reader: io::Cursor::new(buf),
-            signature: sig,
-            seq_fixed_width: true,
-            seq_framing_start: 0,
-            seq_length: 0,
-        };
-        visitor.visit_enum(&mut sub)
+        let mut cd = self.forward("enum")?;
+        cd.deserialize_enum(name, variants, visitor)
     }
 
     fn deserialize_unit_struct<V>(

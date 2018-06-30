@@ -3,6 +3,8 @@ extern crate serde_bytes;
 extern crate serde_derive;
 extern crate serde_gvariant;
 
+use serde_gvariant::Variant;
+
 #[test]
 fn test_bytes_buf() {
     let data = &[0x01, 0x02, 0x00, 0x03, 0x04];
@@ -15,7 +17,7 @@ fn test_bytes_buf() {
 }
 
 #[test]
-fn test_option() {
+fn test_option_01() {
     {
         let encoded: Vec<u8> = vec![];
         let decoded: Option<u8> = None;
@@ -24,6 +26,10 @@ fn test_option() {
         assert_eq!(ser, encoded);
         assert_eq!(de, decoded);
     }
+}
+
+#[test]
+fn test_option_02() {
     {
         let encoded: Vec<u8> = vec![];
         let decoded: Option<String> = None;
@@ -32,6 +38,10 @@ fn test_option() {
         assert_eq!(ser, encoded);
         assert_eq!(de, decoded);
     }
+}
+
+#[test]
+fn test_option_03() {
     {
         let encoded: Vec<u8> = vec![0x01];
         let decoded: Option<bool> = Some(true);
@@ -40,6 +50,10 @@ fn test_option() {
         assert_eq!(ser, encoded);
         assert_eq!(de, decoded);
     }
+}
+
+#[test]
+fn test_option_04() {
     {
         let encoded: Vec<u8> = vec![b'a', 0x00, 0x00];
         let decoded: Option<String> = Some("a".to_string());
@@ -65,7 +79,7 @@ fn test_fixed_struct() {
 }
 
 #[test]
-fn test_variable_struct() {
+fn test_variable_struct_01() {
     {
         #[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
         struct TestType {
@@ -79,6 +93,10 @@ fn test_variable_struct() {
         assert_eq!(ser, encoded);
         assert_eq!(de, decoded);
     }
+}
+
+#[test]
+fn test_variable_struct_02() {
     {
         #[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
         struct TestType {
@@ -93,6 +111,9 @@ fn test_variable_struct() {
         assert_eq!(ser, encoded);
         assert_eq!(de, decoded);
     }
+}
+#[test]
+fn test_variable_struct_03() {
     {
         #[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
         struct TestType {
@@ -130,9 +151,7 @@ fn test_array() {
 }
 
 #[test]
-fn test_variant() {
-    use serde_gvariant::Variant;
-
+fn test_variant_01() {
     {
         let encoded: Vec<u8> = vec![0x01, 0x00, b'b'];
         let decoded: Variant = Variant::Bool(true);
@@ -141,6 +160,10 @@ fn test_variant() {
         //assert_eq!(ser, encoded);
         assert_eq!(de, decoded);
     }
+}
+
+#[test]
+fn test_variant_02() {
     {
         let encoded: Vec<u8> = vec![b'f', b'o', b'o', 0x00, 0x00, b's'];
         let decoded: Variant = Variant::String("foo".to_string());
@@ -149,6 +172,10 @@ fn test_variant() {
         //assert_eq!(ser, encoded);
         assert_eq!(de, decoded);
     }
+}
+
+#[test]
+fn test_variant_03() {
     {
         let encoded: Vec<u8> = vec![0x01, 0x02, 0x00, b'a', b'y'];
         let decoded: Variant = Variant::Vec(vec![Variant::U8(1), Variant::U8(2)]);
@@ -157,6 +184,10 @@ fn test_variant() {
         //assert_eq!(ser, encoded);
         assert_eq!(de, decoded);
     }
+}
+
+#[test]
+fn test_variant_04() {
     {
         let encoded: Vec<u8> = vec![b'a', 0x00, 0x02, 0x00, b'a', b's'];
         let decoded: Variant = Variant::Vec(vec![Variant::String("a".into())]);
@@ -165,6 +196,10 @@ fn test_variant() {
         //assert_eq!(ser, encoded);
         assert_eq!(de, decoded);
     }
+}
+
+#[test]
+fn test_variant_05() {
     {
         let encoded: Vec<u8> = vec![b'a', 0x00, b'b', 0x00, 0x02, 0x04, 0x00, b'a', b's'];
         let decoded: Variant = Variant::Vec(vec![

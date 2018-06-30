@@ -1,21 +1,20 @@
 use byteorder::ReadBytesExt;
-use config;
 use errors::{self, ResultExt};
 use serde::de::{self, Error};
 use std::io;
 
-use de::top::TopDeserializer;
+use de::cursor::CursorDeserializer;
 
-pub(crate) struct StructDeAccess<RS> {
+pub(crate) struct StructDeAccess<'a, RS: 'a> {
     pub(crate) cur_field: usize,
+    pub(crate) start: u64,
     pub(crate) end: u64,
     pub(crate) _name: &'static str,
     pub(crate) fields: &'static [&'static str],
-    pub(crate) options: config::Config,
-    pub(crate) reader: RS,
+    pub(crate) top: &'a mut ::de::top::TopDeserializer<RS>,
 }
 
-impl<'a, 'de, RS> de::SeqAccess<'de> for &'a mut StructDeAccess<RS>
+impl<'a, 'de, RS> de::SeqAccess<'de> for &'a mut StructDeAccess<'a, RS>
 where
     RS: io::Read + io::Seek,
 {
@@ -39,14 +38,15 @@ where
         let v = {
             let mut seq_de = StructDeserializer {
                 cur_field: &self.cur_field,
+                start: &mut self.start,
                 end: &mut self.end,
                 fields: self.fields,
-                reader: &mut self.reader,
-                options: self.options.clone(),
+                top: &mut self.top,
             };
             trace!(
-                "next field: field_name={}, struct_name={}, struct_end={:#x}",
+                "next field: field_name={}, field_start={:#x} - struct_name={}, struct_end={:#x}",
                 self.fields[self.cur_field],
+                seq_de.start,
                 self._name,
                 seq_de.end
             );
@@ -59,12 +59,12 @@ where
 
 // A Deserializer specialized on structures, with custom logic
 // for non-fized-size ones.
-pub(crate) struct StructDeserializer<'a, RS> {
+pub(crate) struct StructDeserializer<'a, RS: 'a> {
     pub(crate) cur_field: &'a usize,
+    pub(crate) start: &'a mut u64,
     pub(crate) end: &'a mut u64,
     pub(crate) fields: &'static [&'static str],
-    pub(crate) options: config::Config,
-    pub(crate) reader: RS,
+    pub(crate) top: &'a mut ::de::top::TopDeserializer<RS>,
 }
 
 impl<'de, 'a, RS> de::Deserializer<'de> for &'a mut StructDeserializer<'a, RS>
@@ -93,9 +93,12 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let cur = *self.start;
+        *self.start += 1;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_bool(visitor)
     }
@@ -104,9 +107,12 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let cur = *self.start;
+        *self.start += 1;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_i8(visitor)
     }
@@ -115,9 +121,12 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let cur = *self.start;
+        *self.start += 1;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_u8(visitor)
     }
@@ -127,14 +136,15 @@ where
         V: de::Visitor<'de>,
     {
         const ALIGNMENT: u64 = 2;
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
-        trace!("struct: skipping {} padding bytes", padding);
-        self.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
+        trace!("i16: skipping {} padding bytes", padding);
+        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        *self.start += padding + ALIGNMENT;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let mut top = CursorDeserializer {
+            start,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_i16(visitor)
     }
@@ -144,16 +154,18 @@ where
         V: de::Visitor<'de>,
     {
         const ALIGNMENT: u64 = 2;
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
-        trace!("struct: skipping {} padding bytes", padding);
-        self.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
+        trace!("u16: skipping {} padding bytes", padding);
+        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        *self.start += padding + ALIGNMENT;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let mut top = CursorDeserializer {
+            start: start,
+            end: *self.end,
+            top: &mut *self.top,
         };
-        top.deserialize_u16(visitor)
+        let v = top.deserialize_u16(visitor)?;
+        Ok(v)
     }
 
     fn deserialize_i32<V>(self, visitor: V) -> errors::Result<V::Value>
@@ -161,14 +173,15 @@ where
         V: de::Visitor<'de>,
     {
         const ALIGNMENT: u64 = 4;
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
-        trace!("struct: skipping {} padding bytes", padding);
-        self.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
+        trace!("i32: skipping {} padding bytes", padding);
+        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        *self.start += padding + ALIGNMENT;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let mut top = CursorDeserializer {
+            start,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_i32(visitor)
     }
@@ -178,14 +191,15 @@ where
         V: de::Visitor<'de>,
     {
         const ALIGNMENT: u64 = 4;
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
-        trace!("struct: skipping {} padding bytes", padding);
-        self.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
+        trace!("u32: skipping {} padding bytes", padding);
+        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        *self.start += padding + ALIGNMENT;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let mut top = CursorDeserializer {
+            start,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_u32(visitor)
     }
@@ -195,14 +209,15 @@ where
         V: de::Visitor<'de>,
     {
         const ALIGNMENT: u64 = 8;
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
+        let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
         trace!("struct: skipping {} padding bytes", padding);
-        self.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        *self.start += padding + ALIGNMENT;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let mut top = CursorDeserializer {
+            start,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_i64(visitor)
     }
@@ -212,14 +227,15 @@ where
         V: de::Visitor<'de>,
     {
         const ALIGNMENT: u64 = 8;
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
+        let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
         trace!("struct: skipping {} padding bytes", padding);
-        self.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        *self.start += padding + ALIGNMENT;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let mut top = CursorDeserializer {
+            start,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_u64(visitor)
     }
@@ -229,14 +245,15 @@ where
         V: de::Visitor<'de>,
     {
         const ALIGNMENT: u64 = 8;
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
+        let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
         trace!("struct: skipping {} padding bytes", padding);
-        self.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        *self.start += padding + ALIGNMENT;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let mut top = CursorDeserializer {
+            start,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_f64(visitor)
     }
@@ -245,13 +262,13 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
+        let cur = *self.start;
         if self.end.saturating_sub(cur) == 0 {
-            let buf = vec![0x00];
             trace!("empty string");
-            let mut top = TopDeserializer {
-                reader: io::Cursor::new(buf),
-                options: self.options.clone(),
+            let mut top = CursorDeserializer {
+                start: 0,
+                end: 0,
+                top: &mut *self.top,
             };
             return top.deserialize_string(visitor);
         };
@@ -259,10 +276,13 @@ where
         let end = if self.cur_field.saturating_add(1) >= self.fields.len() {
             *self.end as u64
         } else {
-            self.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
-            let val = self.reader.read_u8().chain_err(|| "struct: reading string length")?;
-            self.reader.seek(io::SeekFrom::Start(cur))?;
             *self.end -= 1;
+            self.top.reader.seek(io::SeekFrom::Start(*self.end))?;
+            let val = self.top
+                .reader
+                .read_u8()
+                .chain_err(|| "struct: reading string length")?;
+            self.top.reader.seek(io::SeekFrom::Start(cur))?;
             val as u64
         };
         let buflen = end.checked_sub(cur)
@@ -275,43 +295,43 @@ where
             buflen
         );
 
-        let mut buf = vec![0u8; buflen];
-        self.reader
-            .read_exact(&mut buf)
-            .chain_err(|| "struct: reading string")?;
-        let mut top = TopDeserializer {
-            reader: io::Cursor::new(buf),
-            options: self.options.clone(),
+        *self.start += buflen as u64;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: end,
+            top: &mut *self.top,
         };
-        let v = top.deserialize_string(visitor)?;
-        Ok(v)
+        top.deserialize_string(visitor)
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
         // Empty array.
-        if self.end.saturating_sub(cur) == 0 {
+        if self.end.saturating_sub(*self.start) == 0 {
             trace!("empty array");
-            let buf = vec![];
-            let mut top = TopDeserializer {
-                reader: io::Cursor::new(buf),
-                options: self.options.clone(),
+            let mut top = CursorDeserializer {
+                start: 0,
+                end: 0,
+                top: &mut *self.top,
             };
             return top.deserialize_seq(visitor);
         };
 
         // Non-empty array.
+        let cur = *self.start;
         let end = if self.cur_field.saturating_add(1) >= self.fields.len() {
             let val = *self.end as u64;
             *self.end -= 1;
             val
         } else {
-            self.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
-            let val = self.reader.read_u8().chain_err(|| "struct: reading array length")?;
-            self.reader.seek(io::SeekFrom::Start(cur))?;
+            self.top.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
+            let val = self.top
+                .reader
+                .read_u8()
+                .chain_err(|| "struct: reading array length")?;
+            self.top.reader.seek(io::SeekFrom::Start(cur))?;
             *self.end -= 1;
             val as u64
         };
@@ -325,13 +345,11 @@ where
             end,
             buflen
         );
-        let mut buf = vec![0u8; buflen];
-        self.reader
-            .read_exact(&mut buf)
-            .chain_err(|| "struct: reading array")?;
-        let mut top = TopDeserializer {
-            reader: io::Cursor::new(buf),
-            options: self.options.clone(),
+        *self.start = end;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end,
+            top: &mut *self.top,
         };
         top.deserialize_seq(visitor)
     }
@@ -374,21 +392,19 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        self.reader.seek(io::SeekFrom::End(-1))?;
-        let end = self.reader.read_u8()? as u64;
+        let cur = self.top.reader.seek(io::SeekFrom::Current(0))?;
+        self.top.reader.seek(io::SeekFrom::End(-1))?;
+        let end = self.top.reader.read_u8()? as u64;
         *self.end = self.end.saturating_sub(1);
-        self.reader.seek(io::SeekFrom::Start(cur))?;
+        self.top.reader.seek(io::SeekFrom::Start(cur))?;
         let buflen = (end - cur) as usize;
         trace!("struct: len={}", buflen);
-        let mut buf = vec![0u8; buflen];
-        self.reader.read_exact(&mut buf).chain_err(|| "seq seq")?;
-        let mut top = TopDeserializer {
-            reader: io::Cursor::new(buf),
-            options: self.options.clone(),
+        let mut top = CursorDeserializer {
+            start: cur,
+            end,
+            top: &mut *self.top,
         };
-        let v = top.deserialize_struct(name, fields, visitor)?;
-        Ok(v)
+        top.deserialize_struct(name, fields, visitor)
     }
 
     fn deserialize_unit_struct<V>(
@@ -486,30 +502,27 @@ where
         V: de::Visitor<'de>,
     {
         const ALIGNMENT: u64 = 8;
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
+        let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
         trace!("struct: skipping {} padding bytes", padding);
-        self.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let cur = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        *self.start += padding + ALIGNMENT;
 
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
         if self.end.saturating_sub(cur) == 0 {
-            let buf = vec![];
             trace!("empty seq");
-            let mut top = TopDeserializer {
-                reader: io::Cursor::new(buf),
-                options: self.options.clone(),
+            let mut top = CursorDeserializer {
+                start: 0,
+                end: 0,
+                top: &mut *self.top,
             };
             return top.deserialize_enum(enumer, variants, visitor);
         };
 
         let end = if self.cur_field.saturating_add(1) >= self.fields.len() {
-            let val = *self.end as u64;
-            *self.end -= 1;
-            val
+            *self.end as u64
         } else {
-            self.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
-            let val = self.reader.read_u8().chain_err(|| "struct enum len")?;
-            self.reader.seek(io::SeekFrom::Start(cur))?;
+            self.top.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
+            let val = self.top.reader.read_u8().chain_err(|| "struct enum len")?;
+            self.top.reader.seek(io::SeekFrom::Start(cur))?;
             *self.end -= 1;
             val as u64
         };
@@ -520,16 +533,13 @@ where
         trace!(
             "enum: cur={:#x}, end={:#x}, length={:#x}",
             cur,
-            end,
+            self.end,
             buflen
         );
-        let mut buf = vec![0u8; buflen];
-        self.reader
-            .read_exact(&mut buf)
-            .chain_err(|| "struct enum")?;
-        let mut top = TopDeserializer {
-            reader: io::Cursor::new(buf),
-            options: self.options.clone(),
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_enum(enumer, variants, visitor)
     }
