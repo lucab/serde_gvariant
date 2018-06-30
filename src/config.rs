@@ -72,13 +72,14 @@ impl Config {
 
     pub fn deserialize_variant<T>(&self, value: variant::Variant) -> errors::Result<T>
     where
-        T: serde::de::DeserializeOwned
+        T: serde::de::DeserializeOwned,
     {
         let mut serializer = ::ser::Serializer {
             writer: io::Cursor::new(vec![]),
             options: self.clone(),
         };
-        serde::Serialize::serialize(&value, &mut serializer).chain_err(|| "failed to serialize value")?;
+        serde::Serialize::serialize(&value, &mut serializer)
+            .chain_err(|| "failed to serialize value")?;
         let mut deserializer = ::de::Deserializer {
             reader: serializer.writer,
             options: self.clone(),

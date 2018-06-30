@@ -37,7 +37,12 @@ where
         }
 
         // Deserialize next element
-        trace!("accessing array element: cur={}, seq_framing_start={}, seq_length={}", cur, self.seq_framing_start, self.seq_length);
+        trace!(
+            "accessing array element: cur={}, seq_framing_start={}, seq_length={}",
+            cur,
+            self.seq_framing_start,
+            self.seq_length
+        );
         let mut seq_de = SeqDeserializer {
             seq_framing_start: &mut self.seq_framing_start,
             seq_length: &mut self.seq_length,
@@ -221,7 +226,8 @@ where
         *self.seq_fixed_width = false;
 
         let start = self.reader.seek(io::SeekFrom::Current(0))?;
-        self.reader.seek(io::SeekFrom::Start(*self.seq_framing_start))?;
+        self.reader
+            .seek(io::SeekFrom::Start(*self.seq_framing_start))?;
         let end = self.reader.read_u8()? as u64;
         *self.seq_framing_start = self.seq_framing_start.saturating_add(1);
         let buflen = (end - start) as usize;

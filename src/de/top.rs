@@ -131,7 +131,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        Err(Self::Error::custom("unsupported f32"))
+        Err(Self::Error::custom("top: unsupported f32"))
     }
 
     fn deserialize_f64<V>(self, visitor: V) -> errors::Result<V::Value>
@@ -160,7 +160,7 @@ where
             buf.push(byte);
         }
         let res = String::from_utf8_lossy(&buf).into_owned();
-        trace!("got string: len={}", buf.len());
+        trace!("got string: len={:#x}", buf.len());
         visitor.visit_string(res)
     }
 
@@ -177,9 +177,14 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let mut buf: Vec<u8> = Vec::new();
-        let len = self.reader.read_to_end(&mut buf)?;
-        match len {
+        let start = self.reader.seek(io::SeekFrom::Current(0))?;
+        let end = self.reader.seek(io::SeekFrom::End(0))?;
+        let _cur = self.reader.seek(io::SeekFrom::Start(start))?;
+        let buflen = end.checked_sub(start)
+            .ok_or_else(|| Self::Error::custom("option length underflow"))?
+            as usize;
+
+        match buflen {
             // Fixed-Size inner: empty byte sequence.
             // Non-Fixed-Size inner: empty byte sequence.
             0 => visitor.visit_none(),
@@ -188,9 +193,9 @@ where
             // Non-Fixed-Size inner: data + 0x00.
             _ => {
                 let mut sub = SomeDeserializer {
-                    _len: len,
+                    _len: buflen,
                     options: self.options.clone(),
-                    reader: io::Cursor::new(buf),
+                    reader: &mut self.reader,
                 };
                 visitor.visit_some(&mut sub)
             }
@@ -201,16 +206,36 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let mut buf: Vec<u8> = Vec::new();
-        let length = self.reader.read_to_end(&mut buf)?;
-        trace!("seq: buflen={}", length);
-        let fstart = buf.last().cloned().unwrap_or(0) as u64;
+        let start = self.reader.seek(io::SeekFrom::Current(0))?;
+        let end = self.reader.seek(io::SeekFrom::End(0))?;
+        let _cur = self.reader.seek(io::SeekFrom::Start(start))?;
+        let buflen = end.checked_sub(start)
+            .ok_or_else(|| Self::Error::custom("array length underflow"))?;
+
+        // If items are variable-sized, record where the last one ends.
+        // That is, where the framing offsets start.
+        let fstart = match buflen {
+            0 => 0u64,
+            _ => {
+                self.reader.seek(io::SeekFrom::End(-1))?;
+                let b = self.reader.read_u8()?;
+                self.reader.seek(io::SeekFrom::Start(start))?;
+                b as u64
+            }
+        };
+
+        trace!(
+            "SeqDe: start={:#x}, end={:#x}, length={:#x}",
+            start,
+            end,
+            buflen,
+        );
         let mut sub = SeqDeAccess {
             seq_framing_start: fstart,
             seq_fixed_width: true,
-            seq_length: length as u64,
+            seq_length: buflen,
             options: self.options.clone(),
-            reader: io::Cursor::new(buf),
+            reader: &mut self.reader,
         };
         visitor.visit_seq(&mut sub)
     }
@@ -253,23 +278,28 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let mut buf: Vec<u8> = Vec::new();
-        let end = self.reader.read_to_end(&mut buf)?;
+        let start = self.reader.seek(io::SeekFrom::Current(0))?;
+        let end = self.reader.seek(io::SeekFrom::End(0))?;
+        let _cur = self.reader.seek(io::SeekFrom::Start(start))?;
+        let buflen = end.checked_sub(start)
+            .ok_or_else(|| Self::Error::custom("option length underflow"))?;
+
+        trace!(
+            "StructDe: name={}, num_fields={}, start={:#x}, end={:#x}, length={:#x}",
+            name,
+            fields.len(),
+            start,
+            end,
+            buflen,
+        );
         let mut sub = StructDeAccess {
             cur_field: 0,
-            end: end as u64,
+            end: buflen,
             _name: name,
             fields: fields,
             options: self.options.clone(),
-            reader: io::Cursor::new(buf),
+            reader: &mut self.reader,
         };
-        trace!(
-            "StructDe: name={}, cur={}, num_fields={}, end={}",
-            name,
-            0,
-            fields.len(),
-            sub.end
-        );
         visitor.visit_seq(&mut sub)
     }
 
@@ -298,10 +328,6 @@ where
             String::from_utf8_lossy(&sig),
             length
         );
-//        return Err(Self::Error::custom(format!(
-//            "top: signature {}",
-//            String::from_utf8_lossy(&sig)
-//        )));
 
         let mut sub = EnumDeAccess {
             cur_field: 0,
