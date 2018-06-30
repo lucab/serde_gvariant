@@ -342,15 +342,11 @@ where
         V: de::Visitor<'de>,
     {
         if *self.seq_length == 0 {
-            let mut buf: Vec<u8> = Vec::new();
-            let buflen = self.reader.read_to_end(&mut buf)?;
-            trace!("string: buflen={}", buflen);
             let mut top = TopDeserializer {
-                reader: io::Cursor::new(buf),
+                reader: &mut self.reader,
                 options: self.options.clone(),
             };
-            let v = top.deserialize_string(visitor)?;
-            Ok(v)
+            top.deserialize_string(visitor)
         } else {
             *self.seq_fixed_width = false;
             let start = self.reader.seek(io::SeekFrom::Current(0))?;

@@ -70,7 +70,7 @@ impl Config {
             .chain_err(|| "failed to deserialize reader")
     }
 
-    pub fn deserialize_variant<T>(&self, value: variant::Variant) -> errors::Result<T>
+    pub fn deserialize_variant<T>(&self, value: &variant::Variant) -> errors::Result<T>
     where
         T: serde::de::DeserializeOwned,
     {
@@ -79,12 +79,18 @@ impl Config {
             options: self.clone(),
         };
         serde::Serialize::serialize(&value, &mut serializer)
-            .chain_err(|| "failed to serialize value")?;
+            .chain_err(|| "failed to serialize variant")?;
         let mut deserializer = ::de::Deserializer {
             reader: serializer.writer,
             options: self.clone(),
         };
         serde::Deserialize::deserialize(&mut deserializer)
-            .chain_err(|| "failed to deserialize value")
+            .chain_err(|| "failed to deserialize variant")
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self::new()
     }
 }
