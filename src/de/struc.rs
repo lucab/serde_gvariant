@@ -45,9 +45,9 @@ where
                 options: self.options.clone(),
             };
             trace!(
-                "next field: name={}, field={}, end={}",
-                self._name,
+                "next field: field_name={}, struct_name={}, struct_end={:#x}",
                 self.fields[self.cur_field],
+                self._name,
                 seq_de.end
             );
             de::DeserializeSeed::deserialize(seed, &mut seq_de)?
@@ -260,17 +260,25 @@ where
             *self.end as u64
         } else {
             self.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
-            let val = self.reader.read_u8().chain_err(|| "struct string len")?;
+            let val = self.reader.read_u8().chain_err(|| "struct: reading string length")?;
             self.reader.seek(io::SeekFrom::Start(cur))?;
             *self.end -= 1;
             val as u64
         };
-        let buflen = (end - cur) as usize;
-        trace!("string: len={}", buflen);
+        let buflen = end.checked_sub(cur)
+            .ok_or_else(|| Self::Error::custom("struct: array length underflow"))?
+            as usize;
+        trace!(
+            "string: cur={:#x}, end={:#x}, length={:#x}",
+            cur,
+            end,
+            buflen
+        );
+
         let mut buf = vec![0u8; buflen];
         self.reader
             .read_exact(&mut buf)
-            .chain_err(|| "struct string")?;
+            .chain_err(|| "struct: reading string")?;
         let mut top = TopDeserializer {
             reader: io::Cursor::new(buf),
             options: self.options.clone(),
@@ -284,9 +292,10 @@ where
         V: de::Visitor<'de>,
     {
         let cur = self.reader.seek(io::SeekFrom::Current(0))?;
+        // Empty array.
         if self.end.saturating_sub(cur) == 0 {
+            trace!("empty array");
             let buf = vec![];
-            trace!("empty seq");
             let mut top = TopDeserializer {
                 reader: io::Cursor::new(buf),
                 options: self.options.clone(),
@@ -294,28 +303,37 @@ where
             return top.deserialize_seq(visitor);
         };
 
+        // Non-empty array.
         let end = if self.cur_field.saturating_add(1) >= self.fields.len() {
             let val = *self.end as u64;
             *self.end -= 1;
             val
         } else {
             self.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
-            let val = self.reader.read_u8().chain_err(|| "struct seq len")?;
+            let val = self.reader.read_u8().chain_err(|| "struct: reading array length")?;
             self.reader.seek(io::SeekFrom::Start(cur))?;
             *self.end -= 1;
             val as u64
         };
-        let buflen = (end - cur) as usize;
-        trace!("seq: len={}", buflen);
+        let buflen = end.checked_sub(cur)
+            .ok_or_else(|| Self::Error::custom("struct: array length underflow"))?
+            as usize;
+
+        trace!(
+            "array: cur={:#x}, end={:#x}, length={:#x}",
+            cur,
+            end,
+            buflen
+        );
         let mut buf = vec![0u8; buflen];
-        self.reader.read_exact(&mut buf).chain_err(|| "struct seq")?;
+        self.reader
+            .read_exact(&mut buf)
+            .chain_err(|| "struct: reading array")?;
         let mut top = TopDeserializer {
             reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
-        trace!("seq: cur={}, end={}", cur, end);
-        let v = top.deserialize_seq(visitor)?;
-        Ok(v)
+        top.deserialize_seq(visitor)
     }
 
     fn deserialize_tuple<V>(self, len: usize, visitor: V) -> errors::Result<V::Value>
@@ -457,6 +475,7 @@ where
     {
         Err(Self::Error::custom("struct: option not supported"))
     }
+
     fn deserialize_enum<V>(
         self,
         enumer: &'static str,
@@ -469,7 +488,7 @@ where
         const ALIGNMENT: u64 = 8;
         let cur = self.reader.seek(io::SeekFrom::Current(0))?;
         let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
-        trace!("struct: skipping {} {} padding bytes", cur, padding);
+        trace!("struct: skipping {} padding bytes", padding);
         self.reader.seek(io::SeekFrom::Current(padding as i64))?;
 
         let cur = self.reader.seek(io::SeekFrom::Current(0))?;
@@ -494,8 +513,16 @@ where
             *self.end -= 1;
             val as u64
         };
-        let buflen = (end - cur) as usize;
-        trace!("enum: len={}", buflen);
+        let buflen = end.checked_sub(cur)
+            .ok_or_else(|| Self::Error::custom("struct: array length underflow"))?
+            as usize;
+
+        trace!(
+            "enum: cur={:#x}, end={:#x}, length={:#x}",
+            cur,
+            end,
+            buflen
+        );
         let mut buf = vec![0u8; buflen];
         self.reader
             .read_exact(&mut buf)
@@ -504,8 +531,6 @@ where
             reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
-        trace!("enum: cur={}, end={}", cur, end);
-        let v = top.deserialize_enum(enumer, variants, visitor)?;
-        Ok(v)
+        top.deserialize_enum(enumer, variants, visitor)
     }
 }

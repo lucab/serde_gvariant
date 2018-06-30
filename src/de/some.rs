@@ -167,7 +167,7 @@ where
         let _len = self.reader.read_to_end(&mut buf)?;
         let term = buf.pop().unwrap();
         if term != 0x00 {
-            return Err(Self::Error::custom("string non-zero terminator"));
+            return Err(Self::Error::custom("some: string non-zero terminator"));
         }
 
         let mut top = TopDeserializer {
@@ -185,7 +185,7 @@ where
         let _len = self.reader.read_to_end(&mut buf)?;
         let term = buf.pop().unwrap();
         if term != 0x00 {
-            return Err(Self::Error::custom("byte_buf non-zero terminator"));
+            return Err(Self::Error::custom("some: byte_buf non-zero terminator"));
         }
 
         let mut top = TopDeserializer {

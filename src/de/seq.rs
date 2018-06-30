@@ -38,9 +38,8 @@ where
 
         // Deserialize next element
         trace!(
-            "accessing array element: cur={}, seq_framing_start={}, seq_length={}",
+            "accessing array element: cur_elem={}, seq_length={:#x}",
             cur,
-            self.seq_framing_start,
             self.seq_length
         );
         let mut seq_de = SeqDeserializer {
@@ -236,14 +235,11 @@ where
         self.reader.seek(io::SeekFrom::Start(start))?;
         let mut buf = vec![0u8; buflen];
         self.reader.read_exact(&mut buf).chain_err(|| "seq string")?;
-        let value = {
-            let mut top = TopDeserializer {
-                reader: io::Cursor::new(buf),
-                options: self.options.clone(),
-            };
-            let v = top.deserialize_string(visitor)?;
-            v
+        let mut top = TopDeserializer {
+            reader: io::Cursor::new(buf),
+            options: self.options.clone(),
         };
+        let value = top.deserialize_string(visitor)?;
         Ok(value)
     }
 
@@ -286,16 +282,18 @@ where
         let end = self.reader.read_u8()? as u64;
         *self.seq_length = self.seq_length.saturating_sub(1);
         self.reader.seek(io::SeekFrom::Start(cur))?;
-        let buflen = (end - cur) as usize;
-        trace!("struct: len={}", buflen);
+        let buflen = end.checked_sub(cur)
+            .ok_or_else(|| Self::Error::custom("array: struct length underflow"))?
+            as usize;
+
+        trace!("struct: start={:#x}, end={:#x}, len={:#x}", cur, end, buflen);
         let mut buf = vec![0u8; buflen];
-        self.reader.read_exact(&mut buf).chain_err(|| "seq seq")?;
+        self.reader.read_exact(&mut buf).chain_err(|| "array: reading struct")?;
         let mut top = TopDeserializer {
             reader: io::Cursor::new(buf),
             options: self.options.clone(),
         };
-        let v = top.deserialize_struct(name, fields, visitor)?;
-        Ok(v)
+        top.deserialize_struct(name, fields, visitor)
     }
 
     fn deserialize_tuple<V>(self, len: usize, visitor: V) -> errors::Result<V::Value>

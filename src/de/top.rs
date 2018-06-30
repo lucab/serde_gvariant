@@ -4,7 +4,7 @@ use de::seq::SeqDeAccess;
 use de::some::SomeDeserializer;
 use de::struc::StructDeAccess;
 use de::variant::EnumDeAccess;
-use errors::{self, ResultExt};
+use errors;
 use serde::de::{self, Error};
 use std::io;
 
@@ -150,18 +150,30 @@ where
     where
         V: de::Visitor<'de>,
     {
-        // TODO(lucab): consider a bufreader.
-        let mut buf = Vec::with_capacity(self.options.max_string_len as usize);
-        for _ in 0..buf.capacity() {
-            let byte = self.reader.read_u8().chain_err(|| "string u8")?;
-            if byte == 0 {
-                break;
-            }
-            buf.push(byte);
-        }
-        let res = String::from_utf8_lossy(&buf).into_owned();
-        trace!("got string: len={:#x}", buf.len());
-        visitor.visit_string(res)
+        let start = self.reader.seek(io::SeekFrom::Current(0))?;
+        let end = self.reader.seek(io::SeekFrom::End(0))?;
+        let _cur = self.reader.seek(io::SeekFrom::Start(start))?;
+        let buflen = end.checked_sub(start)
+            .ok_or_else(|| Self::Error::custom("string length underflow"))?
+            as usize;
+        if buflen > self.options.max_string_len {
+            return Err(Self::Error::custom(format!(
+                "top: overlong string, length={}",
+                buflen
+            )));
+        };
+        if buflen == 0 {
+            return visitor.visit_string("".to_string());
+        };
+
+        let mut buf = vec![0; buflen];
+        self.reader.read_exact(&mut buf)?;
+        let strlen = buf.iter()
+            .position(|x| x == &b'\0')
+            .ok_or_else(|| Self::Error::custom("top: non-terminated string"))?;
+        let s = String::from_utf8_lossy(&buf[..strlen]).into_owned();
+        trace!("got string: len={:#x}", buflen);
+        visitor.visit_string(s)
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> errors::Result<V::Value>
@@ -220,7 +232,7 @@ where
                 self.reader.seek(io::SeekFrom::End(-1))?;
                 let b = self.reader.read_u8()?;
                 self.reader.seek(io::SeekFrom::Start(start))?;
-                b as u64
+                u64::from(b)
             }
         };
 
@@ -296,7 +308,7 @@ where
             cur_field: 0,
             end: buflen,
             _name: name,
-            fields: fields,
+            fields,
             options: self.options.clone(),
             reader: &mut self.reader,
         };
@@ -305,7 +317,7 @@ where
 
     fn deserialize_enum<V>(
         self,
-        enumer: &'static str,
+        name: &'static str,
         variants: &'static [&'static str],
         visitor: V,
     ) -> errors::Result<V::Value>
@@ -324,7 +336,7 @@ where
         }
         trace!(
             "EnumDe: name={}, sig={}, length={}",
-            enumer,
+            name,
             String::from_utf8_lossy(&sig),
             length
         );
@@ -332,8 +344,8 @@ where
         let mut sub = EnumDeAccess {
             cur_field: 0,
             end: length as u64,
-            name: enumer,
-            variants: variants,
+            name,
+            variants,
             options: self.options.clone(),
             reader: io::Cursor::new(buf),
             signature: sig,
