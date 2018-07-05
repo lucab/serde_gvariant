@@ -80,6 +80,7 @@ impl Config {
         };
         serde::Serialize::serialize(&value, &mut serializer)
             .chain_err(|| "failed to serialize variant")?;
+
         let mut deserializer = ::de::Deserializer {
             reader: serializer.writer,
             options: self.clone(),

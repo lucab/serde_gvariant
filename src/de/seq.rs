@@ -1,19 +1,20 @@
 use byteorder::ReadBytesExt;
-use config;
-use de::top::TopDeserializer;
-use errors::{self, ResultExt};
+use errors;
 use serde::de::{self, Error};
 use std::io;
 
-pub(crate) struct SeqDeAccess<RS> {
+use de::cursor::CursorDeserializer;
+
+pub(crate) struct SeqDeAccess<'a, RS: 'a> {
+    pub(crate) start: u64,
+    pub(crate) end: u64,
     pub(crate) seq_framing_start: u64,
     pub(crate) seq_fixed_width: bool,
     pub(crate) seq_length: u64,
-    pub(crate) options: config::Config,
-    pub(crate) reader: RS,
+    pub(crate) top: &'a mut ::de::top::TopDeserializer<RS>,
 }
 
-impl<'a, 'de, RS> de::SeqAccess<'de> for &'a mut SeqDeAccess<RS>
+impl<'a, 'de, RS> de::SeqAccess<'de> for &'a mut SeqDeAccess<'a, RS>
 where
     RS: io::Read + io::Seek,
 {
@@ -25,8 +26,7 @@ where
     {
         // Stop conditions:
         //   1. fixed-width entries: EOF reached
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        if self.seq_fixed_width && cur == self.seq_length {
+        if self.start == self.end {
             trace!("got fixed width array: len={}", self.seq_length);
             return Ok(None);
         }
@@ -38,16 +38,18 @@ where
 
         // Deserialize next element
         trace!(
-            "accessing array element: cur_elem={}, seq_length={:#x}",
-            cur,
+            "accessing array element: cur_start={:#x}, end={:#x} seq_length={:#x}",
+            self.start,
+            self.end,
             self.seq_length
         );
         let mut seq_de = SeqDeserializer {
+            start: &mut self.start,
+            end: &mut self.end,
             seq_framing_start: &mut self.seq_framing_start,
             seq_length: &mut self.seq_length,
             seq_fixed_width: &mut self.seq_fixed_width,
-            options: self.options.clone(),
-            reader: &mut self.reader,
+            top: &mut self.top,
         };
         let v = de::DeserializeSeed::deserialize(seed, &mut seq_de)?;
         Ok(Some(v))
@@ -56,12 +58,13 @@ where
 
 // A Deserializer specialized on array, with custom logic
 // for non-fized-size ones.
-pub(crate) struct SeqDeserializer<'a, RS> {
+pub(crate) struct SeqDeserializer<'a, RS: 'a> {
+    pub(crate) start: &'a mut u64,
+    pub(crate) end: &'a mut u64,
     pub(crate) seq_framing_start: &'a mut u64,
     pub(crate) seq_fixed_width: &'a mut bool,
     pub(crate) seq_length: &'a mut u64,
-    pub(crate) options: config::Config,
-    pub(crate) reader: RS,
+    pub(crate) top: &'a mut ::de::top::TopDeserializer<RS>,
 }
 
 impl<'de, 'a, RS> de::Deserializer<'de> for &'a mut SeqDeserializer<'a, RS>
@@ -94,9 +97,12 @@ where
     {
         *self.seq_fixed_width = true;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let cur = *self.start;
+        *self.start += 1;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_bool(visitor)
     }
@@ -107,9 +113,12 @@ where
     {
         *self.seq_fixed_width = true;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let cur = *self.start;
+        *self.start += 1;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_i8(visitor)
     }
@@ -120,9 +129,12 @@ where
     {
         *self.seq_fixed_width = true;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let cur = *self.start;
+        *self.start += 1;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_u8(visitor)
     }
@@ -133,9 +145,12 @@ where
     {
         *self.seq_fixed_width = true;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let cur = *self.start;
+        *self.start += 2;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_i16(visitor)
     }
@@ -146,9 +161,12 @@ where
     {
         *self.seq_fixed_width = true;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let cur = *self.start;
+        *self.start += 2;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_u16(visitor)
     }
@@ -159,9 +177,12 @@ where
     {
         *self.seq_fixed_width = true;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let cur = *self.start;
+        *self.start += 4;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_i32(visitor)
     }
@@ -172,9 +193,12 @@ where
     {
         *self.seq_fixed_width = true;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let cur = *self.start;
+        *self.start += 4;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_u32(visitor)
     }
@@ -185,9 +209,12 @@ where
     {
         *self.seq_fixed_width = true;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let cur = *self.start;
+        *self.start += 8;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_i64(visitor)
     }
@@ -198,9 +225,12 @@ where
     {
         *self.seq_fixed_width = true;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let cur = *self.start;
+        *self.start += 8;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_u64(visitor)
     }
@@ -211,33 +241,39 @@ where
     {
         *self.seq_fixed_width = true;
 
-        let mut top = TopDeserializer {
-            reader: &mut self.reader,
-            options: self.options.clone(),
+        let cur = *self.start;
+        *self.start += 8;
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: *self.end,
+            top: &mut *self.top,
         };
         top.deserialize_f64(visitor)
     }
 
+    // Variable size
     fn deserialize_string<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
         *self.seq_fixed_width = false;
 
-        let start = self.reader.seek(io::SeekFrom::Current(0))?;
-        self.reader
+        let start = *self.start;
+        self.top
+            .reader
             .seek(io::SeekFrom::Start(*self.seq_framing_start))?;
-        let end = self.reader.read_u8()? as u64;
+        let end = u64::from(self.top.reader.read_u8()?);
         *self.seq_framing_start = self.seq_framing_start.saturating_add(1);
-        let buflen = (end - start) as usize;
+        let buflen = end.checked_sub(start)
+            .ok_or_else(|| Self::Error::custom("array: string length underflow"))?;
         trace!("string: start={}, end={}, buflen={}", start, end, buflen);
 
-        self.reader.seek(io::SeekFrom::Start(start))?;
-        let mut buf = vec![0u8; buflen];
-        self.reader.read_exact(&mut buf).chain_err(|| "seq string")?;
-        let mut top = TopDeserializer {
-            reader: io::Cursor::new(buf),
-            options: self.options.clone(),
+        *self.start += buflen;
+        self.top.reader.seek(io::SeekFrom::Start(start))?;
+        let mut top = CursorDeserializer {
+            start,
+            end: end,
+            top: &mut *self.top,
         };
         let value = top.deserialize_string(visitor)?;
         Ok(value)
@@ -249,18 +285,19 @@ where
     {
         *self.seq_fixed_width = false;
 
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        self.reader.seek(io::SeekFrom::End(-1))?;
-        let end = self.reader.read_u8()? as u64;
+        let start = *self.start;
+        self.top.reader.seek(io::SeekFrom::End(-1))?;
+        let end = u64::from(self.top.reader.read_u8()?);
         *self.seq_length = self.seq_length.saturating_sub(1);
-        self.reader.seek(io::SeekFrom::Start(cur))?;
-        let buflen = (end - cur) as usize;
+        self.top.reader.seek(io::SeekFrom::Start(start))?;
+        let buflen = end.checked_sub(start)
+            .ok_or_else(|| Self::Error::custom("array: array length underflow"))?;
         trace!("seq: len={}", buflen);
-        let mut buf = vec![0u8; buflen];
-        self.reader.read_exact(&mut buf).chain_err(|| "seq seq")?;
-        let mut top = TopDeserializer {
-            reader: io::Cursor::new(buf),
-            options: self.options.clone(),
+        *self.start += buflen;
+        let mut top = CursorDeserializer {
+            start,
+            end: end,
+            top: &mut *self.top,
         };
         let v = top.deserialize_seq(visitor)?;
         Ok(v)
@@ -277,22 +314,29 @@ where
     {
         *self.seq_fixed_width = false;
 
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        self.reader.seek(io::SeekFrom::End(-1))?;
-        let end = self.reader.read_u8()? as u64;
+        let cur = *self.start;
+        *self.end -= 1;
+
+        self.top.reader.seek(io::SeekFrom::Start(*self.end))?;
+        let end = self.top.reader.read_u8()? as u64;
         *self.seq_length = self.seq_length.saturating_sub(1);
-        self.reader.seek(io::SeekFrom::Start(cur))?;
+        self.top.reader.seek(io::SeekFrom::Start(cur))?;
         let buflen = end.checked_sub(cur)
             .ok_or_else(|| Self::Error::custom("array: struct length underflow"))?
             as usize;
 
-        trace!("struct: start={:#x}, end={:#x}, len={:#x}", cur, end, buflen);
-        let mut buf = vec![0u8; buflen];
-        self.reader.read_exact(&mut buf).chain_err(|| "array: reading struct")?;
-        let mut top = TopDeserializer {
-            reader: io::Cursor::new(buf),
-            options: self.options.clone(),
+        trace!(
+            "struct: start={:#x}, end={:#x}, len={:#x}",
+            cur,
+            end,
+            buflen
+        );
+        let mut top = CursorDeserializer {
+            start: cur,
+            end: end,
+            top: &mut *self.top,
         };
+        *self.start += buflen as u64;
         top.deserialize_struct(name, fields, visitor)
     }
 
@@ -338,20 +382,18 @@ where
     {
         *self.seq_fixed_width = false;
 
-        let cur = self.reader.seek(io::SeekFrom::Current(0))?;
-        self.reader.seek(io::SeekFrom::End(-1))?;
-        let end = self.reader.read_u8()? as u64;
+        let cur = self.top.reader.seek(io::SeekFrom::Current(0))?;
+        self.top.reader.seek(io::SeekFrom::End(-1))?;
+        let end = self.top.reader.read_u8()? as u64;
         *self.seq_length = self.seq_length.saturating_sub(1);
-        self.reader.seek(io::SeekFrom::Start(cur))?;
+        self.top.reader.seek(io::SeekFrom::Start(cur))?;
         let buflen = (end - cur) as usize;
         trace!("enum: len={}", buflen);
-        let mut buf = vec![0u8; buflen];
-        self.reader.read_exact(&mut buf).chain_err(|| "seq enum")?;
-        let mut top = TopDeserializer {
-            reader: io::Cursor::new(buf),
-            options: self.options.clone(),
+        let mut top = CursorDeserializer {
+            start: cur,
+            end,
+            top: &mut *self.top,
         };
-        let v = top.deserialize_enum(enumer, variants, visitor)?;
-        Ok(v)
+        top.deserialize_enum(enumer, variants, visitor)
     }
 }

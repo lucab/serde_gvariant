@@ -1,3 +1,4 @@
+mod cursor;
 mod seq;
 mod some;
 mod struc;
