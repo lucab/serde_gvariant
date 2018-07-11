@@ -4,6 +4,7 @@ use serde::de::{self, Error};
 use std::io;
 
 use de::cursor::CursorDeserializer;
+use de::util;
 
 pub(crate) struct StructDeAccess<'a, RS: 'a> {
     pub(crate) cur_field: usize,
@@ -308,8 +309,13 @@ where
     where
         V: de::Visitor<'de>,
     {
+        let struct_start = *self.start;
+        let struct_end = *self.end;
+        let struct_len = self.end
+            .checked_sub(struct_start)
+            .ok_or_else(|| Self::Error::custom("struct: length underflow"))?;
         // Empty array.
-        if self.end.saturating_sub(*self.start) == 0 {
+        if struct_len == 0 {
             trace!("empty array");
             let mut top = CursorDeserializer {
                 start: 0,
@@ -322,18 +328,13 @@ where
         // Non-empty array.
         let cur = *self.start;
         let end = if self.cur_field.saturating_add(1) >= self.fields.len() {
-            let val = *self.end as u64;
-            *self.end -= 1;
-            val
+            let size = util::compute_size(struct_len);
+            *self.end -= size;
+            struct_end
         } else {
-            self.top.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
-            let val = self.top
-                .reader
-                .read_u8()
-                .chain_err(|| "struct: reading array length")?;
-            self.top.reader.seek(io::SeekFrom::Start(cur))?;
-            *self.end -= 1;
-            val as u64
+            let (val, size) = util::read_len(self.top, struct_start, struct_end, struct_len)?;
+            *self.end -= size;
+            val
         };
         let buflen = end.checked_sub(cur)
             .ok_or_else(|| Self::Error::custom("struct: array length underflow"))?

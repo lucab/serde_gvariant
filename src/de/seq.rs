@@ -4,6 +4,7 @@ use serde::de::{self, Error};
 use std::io;
 
 use de::cursor::CursorDeserializer;
+use de::util;
 
 pub(crate) struct SeqDeAccess<'a, RS: 'a> {
     pub(crate) start: u64,
@@ -314,29 +315,31 @@ where
     {
         *self.seq_fixed_width = false;
 
-        let cur = *self.start;
-        *self.end -= 1;
+        let seq_start = *self.start;
+        let seq_end = *self.end;
+        let seq_len = seq_end
+            .checked_sub(seq_start)
+            .ok_or_else(|| Self::Error::custom("seq: length underflow"))?;
+        let (struct_end, size) = util::read_len(self.top, seq_start, seq_end, seq_len)?;
+        let buflen = struct_end.checked_sub(seq_start)
+            .ok_or_else(|| Self::Error::custom("array: struct length underflow"))?;
 
-        self.top.reader.seek(io::SeekFrom::Start(*self.end))?;
-        let end = self.top.reader.read_u8()? as u64;
-        *self.seq_length = self.seq_length.saturating_sub(1);
-        self.top.reader.seek(io::SeekFrom::Start(cur))?;
-        let buflen = end.checked_sub(cur)
-            .ok_or_else(|| Self::Error::custom("array: struct length underflow"))?
-            as usize;
+        // Update cursor for next element.
+        *self.end -= size;
+        *self.start += buflen;
 
+        // Deserialize struct.
         trace!(
             "struct: start={:#x}, end={:#x}, len={:#x}",
-            cur,
-            end,
+            seq_start,
+            struct_end,
             buflen
         );
         let mut top = CursorDeserializer {
-            start: cur,
-            end: end,
+            start: seq_start,
+            end: struct_end,
             top: &mut *self.top,
         };
-        *self.start += buflen as u64;
         top.deserialize_struct(name, fields, visitor)
     }
 
