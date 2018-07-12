@@ -5,6 +5,7 @@ use de::struc::StructDeAccess;
 use de::variant::EnumDeAccess;
 use errors;
 use serde::de::{self, Error};
+use serde_bytes;
 use std::io;
 
 #[derive(Debug)]
@@ -206,6 +207,22 @@ where
         self.top.reader.read_exact(&mut buf)?;
         self.start += buflen as u64;
         visitor.visit_byte_buf(buf)
+    }
+
+    fn deserialize_bytes<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let buflen = self.end.checked_sub(self.start).ok_or_else(|| {
+            Self::Error::custom(format!(
+                "bytes length underflow - end={:#x}, start={:#x}",
+                self.end, self.start
+            ))
+        })? as usize;
+        let mut buf = vec![0; buflen];
+        self.top.reader.read_exact(&mut buf)?;
+        self.start += buflen as u64;
+        visitor.visit_bytes(&buf.as_slice())
     }
 
     fn deserialize_option<V>(self, visitor: V) -> errors::Result<V::Value>
@@ -424,6 +441,6 @@ where
     }
 
     forward_to_deserialize_any! {
-        identifier ignored_any map char bytes str
+        identifier ignored_any map char str
     }
 }

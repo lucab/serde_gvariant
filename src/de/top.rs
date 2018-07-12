@@ -146,6 +146,14 @@ where
         cd.deserialize_byte_buf(visitor)
     }
 
+    fn deserialize_bytes<V>(self, visitor: V) -> errors::Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let mut cd = self.forward("bytes")?;
+        cd.deserialize_bytes(visitor)
+    }
+
     fn deserialize_option<V>(self, visitor: V) -> errors::Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -247,6 +255,6 @@ where
     }
 
     forward_to_deserialize_any! {
-            identifier ignored_any map char bytes str
+            identifier ignored_any map char str
     }
 }

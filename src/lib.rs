@@ -33,6 +33,7 @@ extern crate ordered_float;
 extern crate log;
 #[macro_use]
 extern crate serde;
+extern crate serde_bytes;
 #[macro_use]
 extern crate serde_derive;
 
@@ -62,10 +63,10 @@ where
     config().serialize(value)
 }
 
-/// Deserializes an object directly from a `Read`er using the default configuration.
-pub fn from_reader<R, T>(reader: R) -> errors::Result<T>
+/// Deserializes an object directly from a seeking reader using the default configuration.
+pub fn from_reader<RS, T>(reader: RS) -> errors::Result<T>
 where
-    R: std::io::Read + std::io::Seek,
+    RS: std::io::Read + std::io::Seek,
     T: serde::de::DeserializeOwned,
 {
     config().deserialize_reader(reader)

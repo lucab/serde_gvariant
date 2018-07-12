@@ -62,7 +62,6 @@ impl Config {
         &self,
         reader: R,
     ) -> errors::Result<T> {
-        //let mut deserializer = ::de::Deserializer::<R>::new(reader, &self);
         let mut deserializer = ::de::Deserializer {
             reader,
             options: self.clone(),
