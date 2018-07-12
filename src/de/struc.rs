@@ -263,8 +263,14 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let cur = *self.start;
-        if self.end.saturating_sub(cur) == 0 {
+        let struct_start = *self.start;
+        let struct_end = *self.end;
+        let struct_len = self.end
+            .checked_sub(struct_start)
+            .ok_or_else(|| Self::Error::custom("struct: length underflow"))?;
+
+        // Empty string.
+        if struct_len == 0 {
             trace!("empty string");
             let mut top = CursorDeserializer {
                 start: 0,
@@ -274,31 +280,28 @@ where
             return top.deserialize_string(visitor);
         };
 
+        // Non-empty string.
         let end = if self.cur_field.saturating_add(1) >= self.fields.len() {
-            *self.end as u64
+            struct_end as u64
         } else {
-            *self.end -= 1;
-            self.top.reader.seek(io::SeekFrom::Start(*self.end))?;
-            let val = self.top
-                .reader
-                .read_u8()
-                .chain_err(|| "struct: reading string length")?;
-            self.top.reader.seek(io::SeekFrom::Start(cur))?;
-            val as u64
+            let (val, size) = util::read_len(self.top, struct_start, struct_end, struct_len)?;
+            *self.end -= size;
+            val
         };
-        let buflen = end.checked_sub(cur)
-            .ok_or_else(|| Self::Error::custom("struct: array length underflow"))?
-            as usize;
+        let buflen = end.checked_sub(struct_start)
+            .ok_or_else(|| Self::Error::custom("struct: string length underflow"))?;
+
+        // Update position to prepare for next element
+        *self.start += buflen;
+
         trace!(
             "string: cur={:#x}, end={:#x}, length={:#x}",
-            cur,
+            struct_start,
             end,
             buflen
         );
-
-        *self.start += buflen as u64;
         let mut top = CursorDeserializer {
-            start: cur,
+            start: struct_start,
             end: end,
             top: &mut *self.top,
         };
@@ -314,6 +317,7 @@ where
         let struct_len = self.end
             .checked_sub(struct_start)
             .ok_or_else(|| Self::Error::custom("struct: length underflow"))?;
+
         // Empty array.
         if struct_len == 0 {
             trace!("empty array");
@@ -337,8 +341,10 @@ where
             val
         };
         let buflen = end.checked_sub(cur)
-            .ok_or_else(|| Self::Error::custom("struct: array length underflow"))?
-            as usize;
+            .ok_or_else(|| Self::Error::custom("struct: array length underflow"))?;
+
+        // Update position to prepare for next element
+        *self.start = end;
 
         trace!(
             "array: cur={:#x}, end={:#x}, length={:#x}",
@@ -346,7 +352,6 @@ where
             end,
             buflen
         );
-        *self.start = end;
         let mut top = CursorDeserializer {
             start: cur,
             end,
@@ -502,14 +507,24 @@ where
     where
         V: de::Visitor<'de>,
     {
+        // Align start
         const ALIGNMENT: u64 = 8;
         let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
-        trace!("struct: skipping {} padding bytes", padding);
-        let cur = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
-        *self.start += padding + ALIGNMENT;
+        if padding != 0 {
+            trace!("struct: skipping {} padding bytes", padding);
+            *self.start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        }
 
-        if self.end.saturating_sub(cur) == 0 {
-            trace!("empty seq");
+        // Compute variant limits
+        let struct_start = *self.start;
+        let struct_end = *self.end;
+        let struct_len = struct_end
+            .checked_sub(struct_start)
+            .ok_or_else(|| Self::Error::custom("struct: length underflow"))?;
+
+        // Empty variant.
+        if struct_len == 0 {
+            trace!("empty enum");
             let mut top = CursorDeserializer {
                 start: 0,
                 end: 0,
@@ -518,28 +533,30 @@ where
             return top.deserialize_enum(enumer, variants, visitor);
         };
 
+        // Non-empty variant.
         let end = if self.cur_field.saturating_add(1) >= self.fields.len() {
-            *self.end as u64
+            struct_end as u64
         } else {
-            self.top.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
-            let val = self.top.reader.read_u8().chain_err(|| "struct enum len")?;
-            self.top.reader.seek(io::SeekFrom::Start(cur))?;
-            *self.end -= 1;
-            val as u64
+            let (val, size) = util::read_len(self.top, struct_start, struct_end, struct_len)?;
+            *self.end -= size;
+            val
         };
-        let buflen = end.checked_sub(cur)
-            .ok_or_else(|| Self::Error::custom("struct: array length underflow"))?
-            as usize;
+        let buflen = end.checked_sub(struct_start)
+            .ok_or_else(|| Self::Error::custom("struct: enum length underflow"))?;
 
+        // Update position to prepare for next element
+        *self.start += buflen;
+
+        // Deserialize
         trace!(
-            "enum: cur={:#x}, end={:#x}, length={:#x}",
-            cur,
-            self.end,
+            "enum: start={:#x}, end={:#x}, length={:#x}",
+            struct_start,
+            end,
             buflen
         );
         let mut top = CursorDeserializer {
-            start: cur,
-            end: *self.end,
+            start: struct_start,
+            end: struct_end,
             top: &mut *self.top,
         };
         top.deserialize_enum(enumer, variants, visitor)
