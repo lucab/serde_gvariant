@@ -6,6 +6,83 @@ use serde::{self, ser, ser::Error};
 use std::io;
 
 #[derive(Debug)]
+pub(crate) struct Properties {
+    pub(crate) fixed_size: bool,
+    pub(crate) size: u64,
+}
+
+#[derive(Debug)]
+pub(crate) struct SerSeq<'a, W: 'a> {
+    pub(crate) cur_offset: u64,
+    pub(crate) framing_offsets: Vec<u64>,
+    // PERFOPT(lucab): write-once
+    pub(crate) fixed_size: bool,
+    pub(crate) serializer: &'a mut Serializer<W>,
+    pub(crate) size: u64,
+}
+
+impl<'a, W> ser::SerializeSeq for SerSeq<'a, W>
+where
+    W: io::Write,
+{
+    type Ok = Properties;
+    type Error = errors::Error;
+
+    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> errors::Result<()>
+    where
+        T: Serialize,
+    {
+        // Serialize this element
+        let p = value
+            .serialize(&mut *self.serializer)
+            .chain_err(|| "failed to serialize array element")?;
+
+        // Update total array size
+        self.size = self.size
+            .checked_add(p.size)
+            .ok_or_else(|| Self::Error::custom("array length overflowed"))?;
+
+        // Update current position/offset
+        self.cur_offset = self.cur_offset
+            .checked_add(p.size)
+            .ok_or_else(|| Self::Error::custom("current offset overflowed"))?;
+
+        // Record whether elements are fixed size
+        self.fixed_size = p.fixed_size;
+
+        // If element is variable-sized, records where it ends
+        if !p.fixed_size {
+            self.framing_offsets.push(self.cur_offset);
+            // Add value length to total size
+            self.size = self.size
+                .checked_add(1)
+                .ok_or_else(|| Self::Error::custom("array length overflowed"))?;
+        }
+
+        Ok(())
+    }
+
+    // TODO(lucab): lengths longer that u8::MAX
+    fn end(self) -> errors::Result<Properties> {
+        // If variable-sized, append all framings offsets.
+        // Framing offsets are unaligned and little-endian.
+        for off in self.framing_offsets {
+            self.serializer
+                .writer
+                .write_u8(off as u8)
+                .chain_err(|| "failed to serialize array framings")?;
+        }
+
+        let p = Properties {
+            fixed_size: self.fixed_size,
+            // Total size already accounts for framings too.
+            size: self.size,
+        };
+        Ok(p)
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct SerStruct<'a, W: 'a> {
     pub(crate) cur_field: usize,
     pub(crate) cur_offset: usize,
@@ -54,27 +131,22 @@ where
             return Ok(p);
         };
 
-        // Non-fixed size
+        // Non-fixed size, append all framings offsets except the last one.
+        // Framing offsets are unaligned and little-endian.
         let size = self.framing_offsets.last().cloned().unwrap();
         if size > <u8>::max_value() as usize {
             return Err(Self::Error::custom("unsupported"));
         }
-
         for off in self.framing_offsets {
             self.serializer.writer.write_u8(off as u8)?;
         }
+
         let p = Properties {
             fixed_size: false,
             size: size as u64,
         };
         Ok(p)
     }
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct Properties {
-    pub(crate) fixed_size: bool,
-    pub(crate) size: u64,
 }
 
 #[derive(Debug)]
@@ -96,9 +168,7 @@ where
         let padding = (alignment - (self.current_pos % alignment)) % alignment;
         // TODO(lucab): buffer writes
         for _ in 0..padding {
-            self.writer
-                .write_u8(0x00)
-                .chain_err(|| "failed to pad")?;
+            self.writer.write_u8(0x00).chain_err(|| "failed to pad")?;
         }
         self.current_pos += padding;
         Ok(padding)
@@ -112,7 +182,7 @@ where
     type Ok = Properties;
     type Error = errors::Error;
 
-    type SerializeSeq = ser::Impossible<Self::Ok, Self::Error>;
+    type SerializeSeq = SerSeq<'a, W>;
     type SerializeTuple = ser::Impossible<Self::Ok, Self::Error>;
     type SerializeTupleStruct = ser::Impossible<Self::Ok, Self::Error>;
     type SerializeTupleVariant = ser::Impossible<Self::Ok, Self::Error>;
@@ -425,8 +495,20 @@ where
         Ok(prop)
     }
 
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        Err(Self::Error::custom("unsupported"))
+    fn serialize_seq(self, len_hint: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
+        let framings = match len_hint {
+            Some(l) => Vec::with_capacity(l),
+            None => vec![],
+        };
+
+        let s = Self::SerializeSeq {
+            cur_offset: 0,
+            framing_offsets: framings,
+            fixed_size: false,
+            serializer: self,
+            size: 0,
+        };
+        Ok(s)
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple, Self::Error> {

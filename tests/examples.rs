@@ -30,9 +30,9 @@ fn test_maybe_string_example() {
 fn test_array_booleans_example() {
     let encoded: Vec<u8> = vec![0x01, 0x00, 0x00, 0x01, 0x01];
     let decoded: Vec<bool> = vec![true, false, false, true, true];
-    //let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("ab ser");
+    let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("ab ser");
     let de: Vec<bool> = serde_gvariant::from_slice(&encoded[..]).expect("ab de");
-    //assert_eq!(ser, encoded);
+    assert_eq!(ser, encoded);
     assert_eq!(de, decoded);
 }
 
@@ -76,9 +76,9 @@ fn test_simple_struct() {
 fn test_array_bytes_example() {
     let encoded: Vec<u8> = vec![0x04, 0x05, 0x06, 0x07];
     let decoded: Vec<u8> = vec![0x04, 0x05, 0x06, 0x07];
-    //let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("ab ser");
+    let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("ab ser");
     let de: Vec<u8> = serde_gvariant::from_slice(&encoded[..]).expect("ab de");
-    //assert_eq!(ser, encoded);
+    assert_eq!(ser, encoded);
     assert_eq!(de, decoded);
 }
 
@@ -86,8 +86,8 @@ fn test_array_bytes_example() {
 fn test_array_integers_example() {
     let encoded: Vec<u8> = vec![0x04, 0x00, 0x00, 0x00, 0x02, 0x01, 0x00, 0x00];
     let decoded: Vec<u32> = vec![4, 258];
-    //let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("ab ser");
+    let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("ab ser");
     let de: Vec<u32> = serde_gvariant::from_slice(&encoded[..]).expect("ab de");
-    //assert_eq!(ser, encoded);
+    assert_eq!(ser, encoded);
     assert_eq!(de, decoded);
 }
