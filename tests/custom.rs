@@ -133,9 +133,9 @@ fn test_variable_struct_03() {
             meta: "foobar".to_string(),
         };
         // TODO(lucab): fix ser alignment
-        let _ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("fixed struct ser");
+        let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("fixed struct ser");
         let de: TestType = serde_gvariant::from_slice(&encoded[..]).expect("fixed struct de");
-        //assert_eq!(ser, encoded);
+        assert_eq!(ser, encoded);
         assert_eq!(de, decoded);
     }
 }
