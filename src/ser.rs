@@ -84,11 +84,11 @@ where
 
 #[derive(Debug)]
 pub(crate) struct SerStruct<'a, W: 'a> {
-    pub(crate) cur_field: usize,
-    pub(crate) cur_offset: usize,
-    pub(crate) framing_offsets: Vec<usize>,
+    pub(crate) cur_field: u64,
+    pub(crate) cur_offset: u64,
+    pub(crate) framing_offsets: Vec<u64>,
     pub(crate) name: String,
-    pub(crate) num_fields: usize,
+    pub(crate) num_fields: u64,
     pub(crate) serializer: &'a mut Serializer<W>,
 }
 
@@ -109,7 +109,7 @@ where
             .checked_add(1)
             .ok_or_else(|| Self::Error::custom("field count overflowed"))?;
         self.cur_offset = self.cur_offset
-            .checked_add(p.size as usize)
+            .checked_add(p.size)
             .ok_or_else(|| Self::Error::custom("current offset overflowed"))?;
 
         // If variable-sized and not the last field, records where it ends
@@ -134,7 +134,7 @@ where
         // Non-fixed size, append all framings offsets except the last one.
         // Framing offsets are unaligned and little-endian.
         let size = self.framing_offsets.last().cloned().unwrap();
-        if size > <u8>::max_value() as usize {
+        if size > u64::from(::std::u8::MAX) {
             return Err(Self::Error::custom("unsupported"));
         }
         for off in self.framing_offsets {
@@ -161,7 +161,6 @@ where
     W: io::Write,
 {
     fn pad_align(&mut self, alignment: u64) -> errors::Result<u64> {
-        // TODO(lucab): checked arithmetic
         if alignment <= 1 {
             return Ok(0);
         }
@@ -170,7 +169,9 @@ where
         for _ in 0..padding {
             self.writer.write_u8(0x00).chain_err(|| "failed to pad")?;
         }
-        self.current_pos += padding;
+        self.current_pos = self.current_pos
+            .checked_add(padding)
+            .ok_or_else(|| errors::Error::custom("alignment padding overflowed"))?;
         Ok(padding)
     }
 }
@@ -533,7 +534,7 @@ where
             cur_offset: 0,
             framing_offsets: vec![],
             name: name.to_string(),
-            num_fields: len,
+            num_fields: len as u64,
             serializer: self,
         };
         Ok(s)
