@@ -132,7 +132,6 @@ fn test_variable_struct_03() {
             metalen: 6,
             meta: "foobar".to_string(),
         };
-        // TODO(lucab): fix ser alignment
         let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("fixed struct ser");
         let de: TestType = serde_gvariant::from_slice(&encoded[..]).expect("fixed struct de");
         assert_eq!(ser, encoded);
@@ -144,9 +143,9 @@ fn test_variable_struct_03() {
 fn test_array() {
     let encoded: Vec<u8> = vec![b'a', 0x00, b'b', 0x00, 0x02, 0x04];
     let decoded: Vec<String> = vec!["a".into(), "b".into()];
-    //let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("Vector ser");
+    let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("Vector ser");
     let de: Vec<String> = serde_gvariant::from_slice(&encoded[..]).expect("Vector de");
-    //assert_eq!(ser, encoded);
+    assert_eq!(ser, encoded);
     assert_eq!(de, decoded);
 }
 
