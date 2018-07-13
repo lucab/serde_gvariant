@@ -5,18 +5,6 @@ use serde::Serialize;
 use serde::{self, ser, ser::Error};
 use std::io;
 
-#[derive(Clone, Debug)]
-pub(crate) struct Properties {
-    pub(crate) fixed_size: bool,
-    pub(crate) size: usize,
-}
-
-#[derive(Debug)]
-pub(crate) struct Serializer<W> {
-    pub(crate) writer: W,
-    pub(crate) options: config::Config,
-}
-
 #[derive(Debug)]
 pub(crate) struct SerStruct<'a, W: 'a> {
     pub(crate) cur_field: usize,
@@ -44,7 +32,7 @@ where
             .checked_add(1)
             .ok_or_else(|| Self::Error::custom("field count overflowed"))?;
         self.cur_offset = self.cur_offset
-            .checked_add(p.size)
+            .checked_add(p.size as usize)
             .ok_or_else(|| Self::Error::custom("current offset overflowed"))?;
 
         // If variable-sized and not the last field, records where it ends
@@ -61,7 +49,7 @@ where
         if self.framing_offsets.is_empty() {
             let p = Properties {
                 fixed_size: true,
-                size: self.cur_offset,
+                size: self.cur_offset as u64,
             };
             return Ok(p);
         };
@@ -77,9 +65,43 @@ where
         }
         let p = Properties {
             fixed_size: false,
-            size: size,
+            size: size as u64,
         };
         Ok(p)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Properties {
+    pub(crate) fixed_size: bool,
+    pub(crate) size: u64,
+}
+
+#[derive(Debug)]
+pub(crate) struct Serializer<W> {
+    pub(crate) current_pos: u64,
+    pub(crate) writer: W,
+    pub(crate) options: config::Config,
+}
+
+impl<W> Serializer<W>
+where
+    W: io::Write,
+{
+    fn pad_align(&mut self, alignment: u64) -> errors::Result<u64> {
+        // TODO(lucab): checked arithmetic
+        if alignment <= 1 {
+            return Ok(0);
+        }
+        let padding = (alignment - (self.current_pos % alignment)) % alignment;
+        // TODO(lucab): buffer writes
+        for _ in 0..padding {
+            self.writer
+                .write_u8(0x00)
+                .chain_err(|| "failed to pad")?;
+        }
+        self.current_pos += padding;
+        Ok(padding)
     }
 }
 
@@ -121,29 +143,37 @@ where
     }
 
     fn serialize_bool(self, v: bool) -> errors::Result<Self::Ok> {
+        let size = 1;
+        let _pad = self.pad_align(size)?;
         let byte: u8 = if v { 1 } else { 0 };
         self.writer
             .write_u8(byte)
             .chain_err(|| "failed to serialize bool")?;
         let p = Properties {
             fixed_size: true,
-            size: 1,
+            size,
         };
+        self.current_pos += size;
         Ok(p)
     }
 
     fn serialize_u8(self, v: u8) -> errors::Result<Self::Ok> {
+        let size = 1;
+        let _pad = self.pad_align(size)?;
         self.writer
             .write_u8(v)
             .chain_err(|| "failed to serialize u8")?;
         let p = Properties {
             fixed_size: true,
-            size: 1,
+            size,
         };
+        self.current_pos += size;
         Ok(p)
     }
 
     fn serialize_u16(self, v: u16) -> errors::Result<Self::Ok> {
+        let size = 2;
+        let _pad = self.pad_align(size)?;
         if self.options.network_endian {
             self.writer
                 .write_u16::<BigEndian>(v)
@@ -155,12 +185,15 @@ where
         }
         let p = Properties {
             fixed_size: true,
-            size: 2,
+            size,
         };
+        self.current_pos += size;
         Ok(p)
     }
 
     fn serialize_u32(self, v: u32) -> errors::Result<Self::Ok> {
+        let size = 4;
+        let _pad = self.pad_align(size)?;
         if self.options.network_endian {
             self.writer
                 .write_u32::<BigEndian>(v)
@@ -172,12 +205,15 @@ where
         }
         let p = Properties {
             fixed_size: true,
-            size: 3,
+            size,
         };
+        self.current_pos += size;
         Ok(p)
     }
 
     fn serialize_u64(self, v: u64) -> errors::Result<Self::Ok> {
+        let size = 8;
+        let _pad = self.pad_align(size)?;
         if self.options.network_endian {
             self.writer
                 .write_u64::<BigEndian>(v)
@@ -189,23 +225,29 @@ where
         }
         let p = Properties {
             fixed_size: true,
-            size: 4,
+            size,
         };
+        self.current_pos += size;
         Ok(p)
     }
 
     fn serialize_i8(self, v: i8) -> errors::Result<Self::Ok> {
+        let size = 1;
+        let _pad = self.pad_align(size)?;
         self.writer
             .write_i8(v)
             .chain_err(|| "failed to serialize u8")?;
         let p = Properties {
             fixed_size: true,
-            size: 1,
+            size,
         };
+        self.current_pos += size;
         Ok(p)
     }
 
     fn serialize_i16(self, v: i16) -> errors::Result<Self::Ok> {
+        let size = 2;
+        let _pad = self.pad_align(size)?;
         if self.options.network_endian {
             self.writer
                 .write_i16::<BigEndian>(v)
@@ -217,12 +259,15 @@ where
         }
         let p = Properties {
             fixed_size: true,
-            size: 2,
+            size,
         };
+        self.current_pos += size;
         Ok(p)
     }
 
     fn serialize_i32(self, v: i32) -> errors::Result<Self::Ok> {
+        let size = 4;
+        let _pad = self.pad_align(size)?;
         if self.options.network_endian {
             self.writer
                 .write_i32::<BigEndian>(v)
@@ -234,12 +279,15 @@ where
         }
         let p = Properties {
             fixed_size: true,
-            size: 3,
+            size,
         };
+        self.current_pos += size;
         Ok(p)
     }
 
     fn serialize_i64(self, v: i64) -> errors::Result<Self::Ok> {
+        let size = 8;
+        let _pad = self.pad_align(size)?;
         if self.options.network_endian {
             self.writer
                 .write_i64::<BigEndian>(v)
@@ -251,12 +299,16 @@ where
         }
         let p = Properties {
             fixed_size: true,
-            size: 4,
+            size,
         };
+        self.current_pos += size;
         Ok(p)
     }
 
     fn serialize_f32(self, v: f32) -> errors::Result<Self::Ok> {
+        // Internally promote to f64.
+        let size = 8;
+        let _pad = self.pad_align(size)?;
         let double = f64::from(v);
         if self.options.network_endian {
             self.writer
@@ -269,12 +321,15 @@ where
         }
         let p = Properties {
             fixed_size: true,
-            size: 8,
+            size,
         };
+        self.current_pos += size;
         Ok(p)
     }
 
     fn serialize_f64(self, v: f64) -> errors::Result<Self::Ok> {
+        let size = 8;
+        let _pad = self.pad_align(size)?;
         if self.options.network_endian {
             self.writer
                 .write_f64::<BigEndian>(v)
@@ -286,15 +341,17 @@ where
         }
         let p = Properties {
             fixed_size: true,
-            size: 8,
+            size,
         };
+        self.current_pos += size;
         Ok(p)
     }
 
     fn serialize_str(self, v: &str) -> errors::Result<Self::Ok> {
-        let len = v.len()
+        let size = v.len()
             .checked_add(1)
-            .ok_or_else(|| Self::Error::custom("string length overflowed"))?;
+            .ok_or_else(|| Self::Error::custom("string length overflowed"))?
+            as u64;
         for b in v.as_bytes() {
             self.writer
                 .write_u8(*b)
@@ -305,8 +362,9 @@ where
             .chain_err(|| "failed to serialize string terminator")?;
         let p = Properties {
             fixed_size: false,
-            size: len,
+            size,
         };
+        self.current_pos += size;
         Ok(p)
     }
 
@@ -315,7 +373,7 @@ where
     }
 
     fn serialize_bytes(self, v: &[u8]) -> errors::Result<Self::Ok> {
-        let len = v.len();
+        let size = v.len() as u64;
         for b in v {
             self.writer
                 .write_u8(*b)
@@ -323,8 +381,9 @@ where
         }
         let p = Properties {
             fixed_size: false,
-            size: len,
+            size,
         };
+        self.current_pos += size;
         Ok(p)
     }
 
@@ -346,6 +405,7 @@ where
         let buf: Vec<u8> = Vec::new();
 
         let mut first = Serializer {
+            current_pos: self.current_pos,
             writer: buf,
             options: self.options.clone(),
         };
@@ -361,6 +421,7 @@ where
                 .ok_or_else(|| Self::Error::custom("option-some length overflowed"))?;
         };
         self.writer.write(&first.writer)?;
+        self.current_pos += prop.size;
         Ok(prop)
     }
 

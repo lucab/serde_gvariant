@@ -34,6 +34,7 @@ impl Config {
         let mut buf = vec![];
         {
             let mut serializer = ::ser::Serializer {
+                current_pos: 0,
                 writer: &mut buf,
                 options: self.clone(),
             };
@@ -75,6 +76,7 @@ impl Config {
         T: serde::de::DeserializeOwned,
     {
         let mut serializer = ::ser::Serializer {
+            current_pos: 0,
             writer: io::Cursor::new(vec![]),
             options: self.clone(),
         };
