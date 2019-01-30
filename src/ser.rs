@@ -491,7 +491,7 @@ where
                 .checked_add(1)
                 .ok_or_else(|| Self::Error::custom("option-some length overflowed"))?;
         };
-        self.writer.write(&first.writer)?;
+        self.writer.write_all(&first.writer)?;
         self.current_pos += prop.size;
         Ok(prop)
     }
