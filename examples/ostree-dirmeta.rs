@@ -31,7 +31,7 @@ fn main() -> errors::Result<()> {
     // Setup logging
     env_logger::Builder::new()
         .default_format_timestamp(false)
-    // .filter(Some("serde_gvariant"), log::LevelFilter::Trace)
+        // .filter(Some("serde_gvariant"), log::LevelFilter::Trace)
         .init();
 
     // First parameter is target dirmeta file (optional, default: fixtures sample)

@@ -139,7 +139,10 @@ where
         const ALIGNMENT: u64 = 2;
         let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
         trace!("i16: skipping {} padding bytes", padding);
-        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self
+            .top
+            .reader
+            .seek(io::SeekFrom::Current(padding as i64))?;
         *self.start += padding + ALIGNMENT;
 
         let mut top = CursorDeserializer {
@@ -157,7 +160,10 @@ where
         const ALIGNMENT: u64 = 2;
         let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
         trace!("u16: skipping {} padding bytes", padding);
-        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self
+            .top
+            .reader
+            .seek(io::SeekFrom::Current(padding as i64))?;
         *self.start += padding + ALIGNMENT;
 
         let mut top = CursorDeserializer {
@@ -176,7 +182,10 @@ where
         const ALIGNMENT: u64 = 4;
         let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
         trace!("i32: skipping {} padding bytes", padding);
-        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self
+            .top
+            .reader
+            .seek(io::SeekFrom::Current(padding as i64))?;
         *self.start += padding + ALIGNMENT;
 
         let mut top = CursorDeserializer {
@@ -194,7 +203,10 @@ where
         const ALIGNMENT: u64 = 4;
         let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
         trace!("u32: skipping {} padding bytes", padding);
-        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self
+            .top
+            .reader
+            .seek(io::SeekFrom::Current(padding as i64))?;
         *self.start += padding + ALIGNMENT;
 
         let mut top = CursorDeserializer {
@@ -212,7 +224,10 @@ where
         const ALIGNMENT: u64 = 8;
         let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
         trace!("struct: skipping {} padding bytes", padding);
-        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self
+            .top
+            .reader
+            .seek(io::SeekFrom::Current(padding as i64))?;
         *self.start += padding + ALIGNMENT;
 
         let mut top = CursorDeserializer {
@@ -230,7 +245,10 @@ where
         const ALIGNMENT: u64 = 8;
         let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
         trace!("struct: skipping {} padding bytes", padding);
-        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self
+            .top
+            .reader
+            .seek(io::SeekFrom::Current(padding as i64))?;
         *self.start += padding + ALIGNMENT;
 
         let mut top = CursorDeserializer {
@@ -248,7 +266,10 @@ where
         const ALIGNMENT: u64 = 8;
         let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
         trace!("struct: skipping {} padding bytes", padding);
-        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self
+            .top
+            .reader
+            .seek(io::SeekFrom::Current(padding as i64))?;
         *self.start += padding + ALIGNMENT;
 
         let mut top = CursorDeserializer {
@@ -265,7 +286,8 @@ where
     {
         let struct_start = *self.start;
         let struct_end = *self.end;
-        let struct_len = self.end
+        let struct_len = self
+            .end
             .checked_sub(struct_start)
             .ok_or_else(|| Self::Error::custom("struct: length underflow"))?;
 
@@ -288,7 +310,8 @@ where
             *self.end -= size;
             val
         };
-        let buflen = end.checked_sub(struct_start)
+        let buflen = end
+            .checked_sub(struct_start)
             .ok_or_else(|| Self::Error::custom("struct: string length underflow"))?;
 
         // Update position to prepare for next element
@@ -314,7 +337,8 @@ where
     {
         let struct_start = *self.start;
         let struct_end = *self.end;
-        let struct_len = self.end
+        let struct_len = self
+            .end
             .checked_sub(struct_start)
             .ok_or_else(|| Self::Error::custom("struct: length underflow"))?;
 
@@ -340,7 +364,8 @@ where
             *self.end -= size;
             val
         };
-        let buflen = end.checked_sub(cur)
+        let buflen = end
+            .checked_sub(cur)
             .ok_or_else(|| Self::Error::custom("struct: array length underflow"))?;
 
         // Update position to prepare for next element
@@ -512,7 +537,10 @@ where
         let padding = (ALIGNMENT - (*self.start % ALIGNMENT)) % ALIGNMENT;
         if padding != 0 {
             trace!("struct: skipping {} padding bytes", padding);
-            *self.start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+            *self.start = self
+                .top
+                .reader
+                .seek(io::SeekFrom::Current(padding as i64))?;
         }
 
         // Compute variant limits
@@ -541,7 +569,8 @@ where
             *self.end -= size;
             val
         };
-        let buflen = end.checked_sub(struct_start)
+        let buflen = end
+            .checked_sub(struct_start)
             .ok_or_else(|| Self::Error::custom("struct: enum length underflow"))?;
 
         // Update position to prepare for next element

@@ -442,12 +442,14 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let length = self.end
+        let length = self
+            .end
             .checked_sub(*self.start)
             .ok_or_else(|| Self::Error::custom("variant: array length underflow"))?
             as usize;
 
-        let end_pos = self.end
+        let end_pos = self
+            .end
             .checked_sub(1)
             .ok_or_else(|| Self::Error::custom("variant: array too short"))?;
         self.top.reader.seek(io::SeekFrom::Start(end_pos))?;
@@ -600,31 +602,31 @@ where
     }
 
     /*
-    fn deserialize_option<V>(self, visitor: V) -> errors::Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        let mut buf: Vec<u8> = Vec::new();
-        //let len = self.top.reader.read_to_end(&mut buf)?;
-        trace!("variant: option buflen={}", len);
-        match len {
-            // Fixed-Size inner: empty byte sequence.
-            // Non-Fixed-Size inner: empty byte sequence.
-            0 => visitor.visit_none(),
+        fn deserialize_option<V>(self, visitor: V) -> errors::Result<V::Value>
+        where
+            V: de::Visitor<'de>,
+        {
+            let mut buf: Vec<u8> = Vec::new();
+            //let len = self.top.reader.read_to_end(&mut buf)?;
+            trace!("variant: option buflen={}", len);
+            match len {
+                // Fixed-Size inner: empty byte sequence.
+                // Non-Fixed-Size inner: empty byte sequence.
+                0 => visitor.visit_none(),
 
-            // Fixed-Size inner: just data.
-            // Non-Fixed-Size inner: data + 0x00.
-            _ => {
-                let mut sub = SomeDeserializer {
-                    _len: len,
-                    options: self.top.options.clone(),
-                    reader: io::Cursor::new(buf),
-                };
-                visitor.visit_some(&mut sub)
+                // Fixed-Size inner: just data.
+                // Non-Fixed-Size inner: data + 0x00.
+                _ => {
+                    let mut sub = SomeDeserializer {
+                        _len: len,
+                        options: self.top.options.clone(),
+                        reader: io::Cursor::new(buf),
+                    };
+                    visitor.visit_some(&mut sub)
+                }
             }
         }
-    }
-*/
+    */
     fn deserialize_unit_struct<V>(
         self,
         _name: &'static str,
@@ -711,7 +713,7 @@ where
                 return Err(Self::Error::custom(format!(
                     "variant: unrecognized signature {}",
                     c as char
-                )))
+                )));
             }
         };
         *self.seq_fixed_width = fixed_width;

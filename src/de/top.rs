@@ -14,11 +14,15 @@ impl<'a, RS> TopDeserializer<RS>
 where
     RS: io::Read + io::Seek,
 {
-    pub(crate) fn forward(&'a mut self, kind: &'static str) -> errors::Result<CursorDeserializer<'a, RS>> {
+    pub(crate) fn forward(
+        &'a mut self,
+        kind: &'static str,
+    ) -> errors::Result<CursorDeserializer<'a, RS>> {
         let start = self.reader.seek(io::SeekFrom::Current(0))?;
         let end = self.reader.seek(io::SeekFrom::End(0))?;
         let _cur = self.reader.seek(io::SeekFrom::Start(start))?;
-        let _buflen = end.checked_sub(start)
+        let _buflen = end
+            .checked_sub(start)
             .ok_or_else(|| errors::Error::custom(format!("top: {} length underflow", kind)))?;
 
         let cd = CursorDeserializer {

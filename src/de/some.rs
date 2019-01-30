@@ -76,7 +76,10 @@ where
         let cur = self.top.reader.seek(io::SeekFrom::Current(0))?;
         let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
         trace!("i16: skipping {} padding bytes", padding);
-        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self
+            .top
+            .reader
+            .seek(io::SeekFrom::Current(padding as i64))?;
 
         let mut top = CursorDeserializer {
             start,
@@ -94,7 +97,10 @@ where
         let cur = self.top.reader.seek(io::SeekFrom::Current(0))?;
         let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
         trace!("u16: skipping {} padding bytes", padding);
-        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self
+            .top
+            .reader
+            .seek(io::SeekFrom::Current(padding as i64))?;
 
         let mut top = CursorDeserializer {
             start,
@@ -112,7 +118,10 @@ where
         let cur = self.top.reader.seek(io::SeekFrom::Current(0))?;
         let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
         trace!("struct: skipping {} padding bytes", padding);
-        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self
+            .top
+            .reader
+            .seek(io::SeekFrom::Current(padding as i64))?;
 
         let mut top = CursorDeserializer {
             start,
@@ -130,7 +139,10 @@ where
         let cur = self.top.reader.seek(io::SeekFrom::Current(0))?;
         let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
         trace!("struct: skipping {} padding bytes", padding);
-        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self
+            .top
+            .reader
+            .seek(io::SeekFrom::Current(padding as i64))?;
 
         let mut top = CursorDeserializer {
             start,
@@ -148,7 +160,10 @@ where
         let cur = self.top.reader.seek(io::SeekFrom::Current(0))?;
         let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
         trace!("struct: skipping {} padding bytes", padding);
-        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self
+            .top
+            .reader
+            .seek(io::SeekFrom::Current(padding as i64))?;
 
         let mut top = CursorDeserializer {
             start,
@@ -166,7 +181,10 @@ where
         let cur = self.top.reader.seek(io::SeekFrom::Current(0))?;
         let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
         trace!("struct: skipping {} padding bytes", padding);
-        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self
+            .top
+            .reader
+            .seek(io::SeekFrom::Current(padding as i64))?;
 
         let mut top = CursorDeserializer {
             start,
@@ -184,7 +202,10 @@ where
         let cur = self.top.reader.seek(io::SeekFrom::Current(0))?;
         let padding = (ALIGNMENT - (cur % ALIGNMENT)) % ALIGNMENT;
         trace!("struct: skipping {} padding bytes", padding);
-        let start = self.top.reader.seek(io::SeekFrom::Current(padding as i64))?;
+        let start = self
+            .top
+            .reader
+            .seek(io::SeekFrom::Current(padding as i64))?;
 
         let mut top = CursorDeserializer {
             start,
@@ -200,7 +221,8 @@ where
     {
         let start = self.top.reader.seek(io::SeekFrom::Current(0))?;
         self.top.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
-        let term = self.top
+        let term = self
+            .top
             .reader
             .read_u8()
             .chain_err(|| "struct: reading string length")?;
@@ -224,7 +246,8 @@ where
     {
         let start = self.top.reader.seek(io::SeekFrom::Current(0))?;
         self.top.reader.seek(io::SeekFrom::Start(*self.end - 1))?;
-        let term = self.top
+        let term = self
+            .top
             .reader
             .read_u8()
             .chain_err(|| "struct: reading string length")?;
