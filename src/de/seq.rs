@@ -265,7 +265,8 @@ where
             .seek(io::SeekFrom::Start(*self.seq_framing_start))?;
         let end = u64::from(self.top.reader.read_u8()?);
         *self.seq_framing_start = self.seq_framing_start.saturating_add(1);
-        let buflen = end.checked_sub(start)
+        let buflen = end
+            .checked_sub(start)
             .ok_or_else(|| Self::Error::custom("array: string length underflow"))?;
         trace!("string: start={}, end={}, buflen={}", start, end, buflen);
 
@@ -273,7 +274,7 @@ where
         self.top.reader.seek(io::SeekFrom::Start(start))?;
         let mut top = CursorDeserializer {
             start,
-            end: end,
+            end,
             top: &mut *self.top,
         };
         let value = top.deserialize_string(visitor)?;
@@ -291,13 +292,14 @@ where
         let end = u64::from(self.top.reader.read_u8()?);
         *self.seq_length = self.seq_length.saturating_sub(1);
         self.top.reader.seek(io::SeekFrom::Start(start))?;
-        let buflen = end.checked_sub(start)
+        let buflen = end
+            .checked_sub(start)
             .ok_or_else(|| Self::Error::custom("array: array length underflow"))?;
         trace!("seq: len={}", buflen);
         *self.start += buflen;
         let mut top = CursorDeserializer {
             start,
-            end: end,
+            end,
             top: &mut *self.top,
         };
         let v = top.deserialize_seq(visitor)?;
@@ -321,7 +323,8 @@ where
             .checked_sub(seq_start)
             .ok_or_else(|| Self::Error::custom("seq: length underflow"))?;
         let (struct_end, size) = util::read_len(self.top, seq_start, seq_end, seq_len)?;
-        let buflen = struct_end.checked_sub(seq_start)
+        let buflen = struct_end
+            .checked_sub(seq_start)
             .ok_or_else(|| Self::Error::custom("array: struct length underflow"))?;
 
         // Update cursor for next element.
@@ -387,7 +390,7 @@ where
 
         let cur = self.top.reader.seek(io::SeekFrom::Current(0))?;
         self.top.reader.seek(io::SeekFrom::End(-1))?;
-        let end = self.top.reader.read_u8()? as u64;
+        let end = u64::from(self.top.reader.read_u8()?);
         *self.seq_length = self.seq_length.saturating_sub(1);
         self.top.reader.seek(io::SeekFrom::Start(cur))?;
         let buflen = (end - cur) as usize;

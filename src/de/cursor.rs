@@ -178,7 +178,8 @@ where
 
         let mut buf = vec![0; buflen];
         self.top.reader.read_exact(&mut buf)?;
-        let strlen = buf.iter()
+        let strlen = buf
+            .iter()
             .position(|x| x == &b'\0')
             .ok_or_else(|| Self::Error::custom("cursor: non-terminated string"))?;
         let s = String::from_utf8_lossy(&buf[..strlen]).into_owned();
@@ -242,7 +243,8 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let buflen = self.end
+        let buflen = self
+            .end
             .checked_sub(self.start)
             .ok_or_else(|| Self::Error::custom("cursor: array length underflow"))?;
 
@@ -314,7 +316,8 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let buflen = self.end
+        let buflen = self
+            .end
             .checked_sub(self.start)
             .ok_or_else(|| Self::Error::custom("option length underflow"))?;
 
@@ -347,14 +350,16 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let buflen = self.end
+        let buflen = self
+            .end
             .checked_sub(self.start)
             .ok_or_else(|| Self::Error::custom("string length underflow"))?;
         let mut payload_len = buflen;
         let mut sig: Vec<u8> = Vec::new();
         while payload_len > 0 {
             payload_len -= 1;
-            let _cur = self.top
+            let _cur = self
+                .top
                 .reader
                 .seek(io::SeekFrom::Start(self.start + payload_len))?;
             let charsig = self.top.reader.read_u8()?;

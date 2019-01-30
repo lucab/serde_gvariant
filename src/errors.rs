@@ -3,7 +3,7 @@
 use serde::{de, ser};
 use std::{fmt, io, num};
 
-error_chain!{
+error_chain! {
     foreign_links {
         Io(io::Error);
         ParseInt(num::ParseIntError);

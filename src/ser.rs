@@ -38,12 +38,14 @@ where
             .chain_err(|| "failed to serialize array element")?;
 
         // Update total array size
-        self.size = self.size
+        self.size = self
+            .size
             .checked_add(p.size)
             .ok_or_else(|| Self::Error::custom("array length overflowed"))?;
 
         // Update current position/offset
-        self.cur_offset = self.cur_offset
+        self.cur_offset = self
+            .cur_offset
             .checked_add(p.size)
             .ok_or_else(|| Self::Error::custom("current offset overflowed"))?;
 
@@ -54,7 +56,8 @@ where
         if !p.fixed_size {
             self.framing_offsets.push(self.cur_offset);
             // Add value length to total size
-            self.size = self.size
+            self.size = self
+                .size
                 .checked_add(1)
                 .ok_or_else(|| Self::Error::custom("array length overflowed"))?;
         }
@@ -105,10 +108,12 @@ where
     {
         // Serialize this field
         let p = value.serialize(&mut *self.serializer)?;
-        self.cur_field = self.cur_field
+        self.cur_field = self
+            .cur_field
             .checked_add(1)
             .ok_or_else(|| Self::Error::custom("field count overflowed"))?;
-        self.cur_offset = self.cur_offset
+        self.cur_offset = self
+            .cur_offset
             .checked_add(p.size)
             .ok_or_else(|| Self::Error::custom("current offset overflowed"))?;
 
@@ -169,7 +174,8 @@ where
         for _ in 0..padding {
             self.writer.write_u8(0x00).chain_err(|| "failed to pad")?;
         }
-        self.current_pos = self.current_pos
+        self.current_pos = self
+            .current_pos
             .checked_add(padding)
             .ok_or_else(|| errors::Error::custom("alignment padding overflowed"))?;
         Ok(padding)
@@ -419,10 +425,10 @@ where
     }
 
     fn serialize_str(self, v: &str) -> errors::Result<Self::Ok> {
-        let size = v.len()
-            .checked_add(1)
-            .ok_or_else(|| Self::Error::custom("string length overflowed"))?
-            as u64;
+        let size =
+            v.len()
+                .checked_add(1)
+                .ok_or_else(|| Self::Error::custom("string length overflowed"))? as u64;
         for b in v.as_bytes() {
             self.writer
                 .write_u8(*b)
@@ -487,11 +493,12 @@ where
         if !prop.fixed_size {
             let terminator = 0u8;
             terminator.serialize(&mut first)?;
-            prop.size = prop.size
+            prop.size = prop
+                .size
                 .checked_add(1)
                 .ok_or_else(|| Self::Error::custom("option-some length overflowed"))?;
         };
-        self.writer.write(&first.writer)?;
+        self.writer.write_all(&first.writer)?;
         self.current_pos += prop.size;
         Ok(prop)
     }

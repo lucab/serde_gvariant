@@ -410,7 +410,7 @@ where
             self.top
                 .reader
                 .seek(io::SeekFrom::Start(*self.seq_framing_start))?;
-            let val = self.top.reader.read_u8()? as u64;
+            let val = u64::from(self.top.reader.read_u8()?);
             let end = start + val;
             *self.seq_framing_start = self.seq_framing_start.saturating_add(1);
             let buflen = self.end.checked_sub(*self.start).ok_or_else(|| {
@@ -431,7 +431,7 @@ where
             self.top.reader.seek(io::SeekFrom::Start(start))?;
             let mut top = CursorDeserializer {
                 start,
-                end: end,
+                end,
                 top: &mut *self.top,
             };
             top.deserialize_string(visitor)
@@ -442,16 +442,18 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let length = self.end
+        let length = self
+            .end
             .checked_sub(*self.start)
             .ok_or_else(|| Self::Error::custom("variant: array length underflow"))?
             as usize;
 
-        let end_pos = self.end
+        let end_pos = self
+            .end
             .checked_sub(1)
             .ok_or_else(|| Self::Error::custom("variant: array too short"))?;
         self.top.reader.seek(io::SeekFrom::Start(end_pos))?;
-        let val = self.top.reader.read_u8()? as u64;
+        let val = u64::from(self.top.reader.read_u8()?);
         let fstart = *self.start + val;
         *self.seq_framing_start = fstart;
 
@@ -483,7 +485,7 @@ where
             seq_framing_start: self.seq_framing_start,
             seq_fixed_width: fixed,
             seq_length: length as u64,
-            seq_start: seq_start,
+            seq_start,
             top: &mut *self.top,
         };
         visitor.visit_seq(&mut sub)
@@ -502,7 +504,7 @@ where
         let start = *self.start;
 
         self.top.reader.seek(io::SeekFrom::End(-1))?;
-        let end = self.top.reader.read_u8()? as u64;
+        let end = u64::from(self.top.reader.read_u8()?);
 
         *self.end = self.end.saturating_sub(1);
         self.top.reader.seek(io::SeekFrom::Start(start))?;
@@ -587,44 +589,44 @@ where
             end: self.end,
             start: self.start,
             name: enumer,
-            variants: variants,
+            variants,
             top: &mut *self.top,
             signature: self.signature[*self.cur_field..].to_vec(),
             seq_fixed_width: true,
             seq_framing_start: self.seq_framing_start,
             seq_length: *self.seq_length,
-            seq_start: seq_start,
+            seq_start,
         };
         let v = visitor.visit_enum(&mut sub)?;
         Ok(v)
     }
 
     /*
-    fn deserialize_option<V>(self, visitor: V) -> errors::Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        let mut buf: Vec<u8> = Vec::new();
-        //let len = self.top.reader.read_to_end(&mut buf)?;
-        trace!("variant: option buflen={}", len);
-        match len {
-            // Fixed-Size inner: empty byte sequence.
-            // Non-Fixed-Size inner: empty byte sequence.
-            0 => visitor.visit_none(),
+        fn deserialize_option<V>(self, visitor: V) -> errors::Result<V::Value>
+        where
+            V: de::Visitor<'de>,
+        {
+            let mut buf: Vec<u8> = Vec::new();
+            //let len = self.top.reader.read_to_end(&mut buf)?;
+            trace!("variant: option buflen={}", len);
+            match len {
+                // Fixed-Size inner: empty byte sequence.
+                // Non-Fixed-Size inner: empty byte sequence.
+                0 => visitor.visit_none(),
 
-            // Fixed-Size inner: just data.
-            // Non-Fixed-Size inner: data + 0x00.
-            _ => {
-                let mut sub = SomeDeserializer {
-                    _len: len,
-                    options: self.top.options.clone(),
-                    reader: io::Cursor::new(buf),
-                };
-                visitor.visit_some(&mut sub)
+                // Fixed-Size inner: just data.
+                // Non-Fixed-Size inner: data + 0x00.
+                _ => {
+                    let mut sub = SomeDeserializer {
+                        _len: len,
+                        options: self.top.options.clone(),
+                        reader: io::Cursor::new(buf),
+                    };
+                    visitor.visit_some(&mut sub)
+                }
             }
         }
-    }
-*/
+    */
     fn deserialize_unit_struct<V>(
         self,
         _name: &'static str,
@@ -700,7 +702,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let charsig = self.signature.first().unwrap().clone();
+        let charsig = *self.signature.first().unwrap_or(&b'Z');
         trace!("variant: got id={}", charsig as char);
         let (id, fixed_width) = match charsig {
             b'a' => (11, false),
@@ -711,7 +713,7 @@ where
                 return Err(Self::Error::custom(format!(
                     "variant: unrecognized signature {}",
                     c as char
-                )))
+                )));
             }
         };
         *self.seq_fixed_width = fixed_width;
