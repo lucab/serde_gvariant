@@ -410,7 +410,7 @@ where
             self.top
                 .reader
                 .seek(io::SeekFrom::Start(*self.seq_framing_start))?;
-            let val = self.top.reader.read_u8()? as u64;
+            let val = u64::from(self.top.reader.read_u8()?);
             let end = start + val;
             *self.seq_framing_start = self.seq_framing_start.saturating_add(1);
             let buflen = self.end.checked_sub(*self.start).ok_or_else(|| {
@@ -431,7 +431,7 @@ where
             self.top.reader.seek(io::SeekFrom::Start(start))?;
             let mut top = CursorDeserializer {
                 start,
-                end: end,
+                end,
                 top: &mut *self.top,
             };
             top.deserialize_string(visitor)
@@ -451,7 +451,7 @@ where
             .checked_sub(1)
             .ok_or_else(|| Self::Error::custom("variant: array too short"))?;
         self.top.reader.seek(io::SeekFrom::Start(end_pos))?;
-        let val = self.top.reader.read_u8()? as u64;
+        let val = u64::from(self.top.reader.read_u8()?);
         let fstart = *self.start + val;
         *self.seq_framing_start = fstart;
 
@@ -483,7 +483,7 @@ where
             seq_framing_start: self.seq_framing_start,
             seq_fixed_width: fixed,
             seq_length: length as u64,
-            seq_start: seq_start,
+            seq_start,
             top: &mut *self.top,
         };
         visitor.visit_seq(&mut sub)
@@ -502,7 +502,7 @@ where
         let start = *self.start;
 
         self.top.reader.seek(io::SeekFrom::End(-1))?;
-        let end = self.top.reader.read_u8()? as u64;
+        let end = u64::from(self.top.reader.read_u8()?);
 
         *self.end = self.end.saturating_sub(1);
         self.top.reader.seek(io::SeekFrom::Start(start))?;
@@ -587,13 +587,13 @@ where
             end: self.end,
             start: self.start,
             name: enumer,
-            variants: variants,
+            variants,
             top: &mut *self.top,
             signature: self.signature[*self.cur_field..].to_vec(),
             seq_fixed_width: true,
             seq_framing_start: self.seq_framing_start,
             seq_length: *self.seq_length,
-            seq_start: seq_start,
+            seq_start,
         };
         let v = visitor.visit_enum(&mut sub)?;
         Ok(v)
@@ -700,7 +700,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        let charsig = self.signature.first().unwrap().clone();
+        let charsig = *self.signature.first().unwrap_or(&b'Z');
         trace!("variant: got id={}", charsig as char);
         let (id, fixed_width) = match charsig {
             b'a' => (11, false),

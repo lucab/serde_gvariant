@@ -36,16 +36,15 @@ pub(crate) fn read_len<RS: io::Read + io::Seek>(
             u64::from(len32)
         }
         8 => {
-            let len64 = top.reader
+            top.reader
                 .read_u64::<LittleEndian>()
-                .chain_err(|| "struct: reading array length (u64)")?;
-            u64::from(len64)
+                .chain_err(|| "struct: reading array length (u64)")?
         }
         _ => return Err(errors::Error::custom("struct: unsupported array size")),
     };
     // Reposition to the beginning.
     top.reader.seek(io::SeekFrom::Start(start))?;
-    return Ok((val, size));
+    Ok((val, size))
 }
 
 pub(crate) fn compute_size(len: u64) -> u64 {

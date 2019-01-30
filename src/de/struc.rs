@@ -1,10 +1,10 @@
 use byteorder::ReadBytesExt;
-use errors::{self, ResultExt};
 use serde::de::{self, Error};
 use std::io;
 
 use de::cursor::CursorDeserializer;
 use de::util;
+use errors;
 
 pub(crate) struct StructDeAccess<'a, RS: 'a> {
     pub(crate) cur_field: usize,
@@ -161,7 +161,7 @@ where
         *self.start += padding + ALIGNMENT;
 
         let mut top = CursorDeserializer {
-            start: start,
+            start,
             end: *self.end,
             top: &mut *self.top,
         };
@@ -302,7 +302,7 @@ where
         );
         let mut top = CursorDeserializer {
             start: struct_start,
-            end: end,
+            end,
             top: &mut *self.top,
         };
         top.deserialize_string(visitor)
@@ -400,7 +400,7 @@ where
     {
         let cur = self.top.reader.seek(io::SeekFrom::Current(0))?;
         self.top.reader.seek(io::SeekFrom::End(-1))?;
-        let end = self.top.reader.read_u8()? as u64;
+        let end = u64::from(self.top.reader.read_u8()?);
         *self.end = self.end.saturating_sub(1);
         self.top.reader.seek(io::SeekFrom::Start(cur))?;
         let buflen = (end - cur) as usize;

@@ -273,7 +273,7 @@ where
         self.top.reader.seek(io::SeekFrom::Start(start))?;
         let mut top = CursorDeserializer {
             start,
-            end: end,
+            end,
             top: &mut *self.top,
         };
         let value = top.deserialize_string(visitor)?;
@@ -297,7 +297,7 @@ where
         *self.start += buflen;
         let mut top = CursorDeserializer {
             start,
-            end: end,
+            end,
             top: &mut *self.top,
         };
         let v = top.deserialize_seq(visitor)?;
@@ -387,7 +387,7 @@ where
 
         let cur = self.top.reader.seek(io::SeekFrom::Current(0))?;
         self.top.reader.seek(io::SeekFrom::End(-1))?;
-        let end = self.top.reader.read_u8()? as u64;
+        let end = u64::from(self.top.reader.read_u8()?);
         *self.seq_length = self.seq_length.saturating_sub(1);
         self.top.reader.seek(io::SeekFrom::Start(cur))?;
         let buflen = (end - cur) as usize;
