@@ -1,7 +1,7 @@
-use errors::{self, ResultExt};
+use crate::errors::{self, ResultExt};
+use crate::variant;
 use serde;
 use std::io;
-use variant;
 
 /// A configuration object whose settings will be used while
 /// serializing and deserializing.
@@ -33,7 +33,7 @@ impl Config {
     pub fn serialize<T: ?Sized + serde::Serialize>(&self, t: &T) -> errors::Result<Vec<u8>> {
         let mut buf = vec![];
         {
-            let mut serializer = ::ser::Serializer {
+            let mut serializer = crate::ser::Serializer {
                 current_pos: 0,
                 writer: &mut buf,
                 options: self.clone(),
@@ -49,7 +49,7 @@ impl Config {
         bytes: &'a [u8],
     ) -> errors::Result<T> {
         let reader = io::Cursor::new(bytes);
-        let mut deserializer = ::de::Deserializer {
+        let mut deserializer = crate::de::Deserializer {
             reader,
             options: self.clone(),
         };
@@ -63,7 +63,7 @@ impl Config {
         reader: R,
     ) -> errors::Result<T> {
         //let mut deserializer = ::de::Deserializer::<R>::new(reader, &self);
-        let mut deserializer = ::de::Deserializer {
+        let mut deserializer = crate::de::Deserializer {
             reader,
             options: self.clone(),
         };
@@ -75,7 +75,7 @@ impl Config {
     where
         T: serde::de::DeserializeOwned,
     {
-        let mut serializer = ::ser::Serializer {
+        let mut serializer = crate::ser::Serializer {
             current_pos: 0,
             writer: io::Cursor::new(vec![]),
             options: self.clone(),
@@ -83,7 +83,7 @@ impl Config {
         serde::Serialize::serialize(&value, &mut serializer)
             .chain_err(|| "failed to serialize variant")?;
 
-        let mut deserializer = ::de::Deserializer {
+        let mut deserializer = crate::de::Deserializer {
             reader: serializer.writer,
             options: self.clone(),
         };

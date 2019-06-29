@@ -1,10 +1,10 @@
+use crate::errors;
 use byteorder::ReadBytesExt;
-use errors;
 use serde::de::{self, Error};
 use std::io;
 
-use de::cursor::CursorDeserializer;
-use de::util;
+use crate::de::cursor::CursorDeserializer;
+use crate::de::util;
 
 pub(crate) struct SeqDeAccess<'a, RS: 'a> {
     pub(crate) start: u64,
@@ -12,7 +12,7 @@ pub(crate) struct SeqDeAccess<'a, RS: 'a> {
     pub(crate) seq_framing_start: u64,
     pub(crate) seq_fixed_width: bool,
     pub(crate) seq_length: u64,
-    pub(crate) top: &'a mut ::de::top::TopDeserializer<RS>,
+    pub(crate) top: &'a mut crate::de::top::TopDeserializer<RS>,
 }
 
 impl<'a, 'de, RS> de::SeqAccess<'de> for &'a mut SeqDeAccess<'a, RS>
@@ -65,7 +65,7 @@ pub(crate) struct SeqDeserializer<'a, RS: 'a> {
     pub(crate) seq_framing_start: &'a mut u64,
     pub(crate) seq_fixed_width: &'a mut bool,
     pub(crate) seq_length: &'a mut u64,
-    pub(crate) top: &'a mut ::de::top::TopDeserializer<RS>,
+    pub(crate) top: &'a mut crate::de::top::TopDeserializer<RS>,
 }
 
 impl<'de, 'a, RS> de::Deserializer<'de> for &'a mut SeqDeserializer<'a, RS>

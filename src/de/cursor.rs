@@ -1,9 +1,9 @@
+use crate::de::seq::SeqDeAccess;
+use crate::de::some::SomeDeserializer;
+use crate::de::struc::StructDeAccess;
+use crate::de::variant::EnumDeAccess;
+use crate::errors;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
-use de::seq::SeqDeAccess;
-use de::some::SomeDeserializer;
-use de::struc::StructDeAccess;
-use de::variant::EnumDeAccess;
-use errors;
 use serde::de::{self, Error};
 use std::io;
 
@@ -11,7 +11,7 @@ use std::io;
 pub(crate) struct CursorDeserializer<'a, RS: 'a> {
     pub(crate) start: u64,
     pub(crate) end: u64,
-    pub(crate) top: &'a mut ::de::top::TopDeserializer<RS>,
+    pub(crate) top: &'a mut crate::de::top::TopDeserializer<RS>,
 }
 
 impl<'de, 'a, RS> de::Deserializer<'de> for &'a mut CursorDeserializer<'a, RS>

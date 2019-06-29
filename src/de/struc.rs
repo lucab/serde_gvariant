@@ -2,9 +2,9 @@ use byteorder::ReadBytesExt;
 use serde::de::{self, Error};
 use std::io;
 
-use de::cursor::CursorDeserializer;
-use de::util;
-use errors;
+use crate::de::cursor::CursorDeserializer;
+use crate::de::util;
+use crate::errors;
 
 pub(crate) struct StructDeAccess<'a, RS: 'a> {
     pub(crate) cur_field: usize,
@@ -12,7 +12,7 @@ pub(crate) struct StructDeAccess<'a, RS: 'a> {
     pub(crate) end: u64,
     pub(crate) _name: &'static str,
     pub(crate) fields: &'static [&'static str],
-    pub(crate) top: &'a mut ::de::top::TopDeserializer<RS>,
+    pub(crate) top: &'a mut crate::de::top::TopDeserializer<RS>,
 }
 
 impl<'a, 'de, RS> de::SeqAccess<'de> for &'a mut StructDeAccess<'a, RS>
@@ -65,7 +65,7 @@ pub(crate) struct StructDeserializer<'a, RS: 'a> {
     pub(crate) start: &'a mut u64,
     pub(crate) end: &'a mut u64,
     pub(crate) fields: &'static [&'static str],
-    pub(crate) top: &'a mut ::de::top::TopDeserializer<RS>,
+    pub(crate) top: &'a mut crate::de::top::TopDeserializer<RS>,
 }
 
 impl<'de, 'a, RS> de::Deserializer<'de> for &'a mut StructDeserializer<'a, RS>

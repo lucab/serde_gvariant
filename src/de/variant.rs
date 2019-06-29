@@ -1,9 +1,9 @@
+use crate::errors;
 use byteorder::ReadBytesExt;
-use errors;
 use serde::de::{self, Error};
 use std::io;
 
-use de::cursor::CursorDeserializer;
+use crate::de::cursor::CursorDeserializer;
 //use de::some::SomeDeserializer;
 
 pub(crate) struct EnumDeAccess<'a, RS: 'a> {
@@ -11,7 +11,7 @@ pub(crate) struct EnumDeAccess<'a, RS: 'a> {
     pub(crate) start: &'a mut u64,
     pub(crate) end: &'a mut u64,
     pub(crate) name: &'static str,
-    pub(crate) top: &'a mut ::de::top::TopDeserializer<RS>,
+    pub(crate) top: &'a mut crate::de::top::TopDeserializer<RS>,
     pub(crate) signature: Vec<u8>,
     pub(crate) variants: &'static [&'static str],
     pub(crate) seq_framing_start: &'a mut u64,
@@ -185,7 +185,7 @@ pub(crate) struct EnumDeserializer<'a, RS: 'a> {
     pub(crate) end: &'a mut u64,
     pub(crate) start: &'a mut u64,
     pub(crate) fields: &'static [&'static str],
-    pub(crate) top: &'a mut ::de::top::TopDeserializer<RS>,
+    pub(crate) top: &'a mut crate::de::top::TopDeserializer<RS>,
     pub(crate) signature: &'a mut [u8],
     pub(crate) seq_framing_start: &'a mut u64,
     pub(crate) seq_fixed_width: &'a mut bool,

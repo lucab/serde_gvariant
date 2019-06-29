@@ -1,6 +1,6 @@
+use crate::de::top::TopDeserializer;
+use crate::errors::{self, ResultExt};
 use byteorder::{LittleEndian, ReadBytesExt};
-use de::top::TopDeserializer;
-use errors::{self, ResultExt};
 use serde::de::Error;
 use std::io;
 

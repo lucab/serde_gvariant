@@ -42,8 +42,8 @@ pub mod errors;
 mod ser;
 mod variant;
 
-pub use config::Config;
-pub use variant::Variant;
+pub use crate::config::Config;
+pub use crate::variant::Variant;
 
 /// Get a default configuration object.
 ///

@@ -1,6 +1,6 @@
+use crate::config;
+use crate::errors::{self, ResultExt};
 use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
-use config;
-use errors::{self, ResultExt};
 use serde::Serialize;
 use serde::{self, ser, ser::Error};
 use std::io;
