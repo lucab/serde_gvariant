@@ -478,7 +478,6 @@ where
     where
         T: ser::Serialize,
     {
-        use serde::Serialize;
         let buf: Vec<u8> = Vec::new();
 
         let mut first = Serializer {
