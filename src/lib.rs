@@ -22,13 +22,8 @@
 //! }
 //! ```
 
-// error-chain: lint unused_doc_comment has been renamed
-#![allow(renamed_and_removed_lints)]
-
-extern crate byteorder;
 #[macro_use]
 extern crate error_chain;
-extern crate ordered_float;
 #[macro_use]
 extern crate log;
 #[macro_use]
