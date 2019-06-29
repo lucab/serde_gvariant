@@ -22,13 +22,8 @@
 //! }
 //! ```
 
-// error-chain: lint unused_doc_comment has been renamed
-#![allow(renamed_and_removed_lints)]
-
-extern crate byteorder;
 #[macro_use]
 extern crate error_chain;
-extern crate ordered_float;
 #[macro_use]
 extern crate log;
 #[macro_use]
@@ -42,8 +37,8 @@ pub mod errors;
 mod ser;
 mod variant;
 
-pub use config::Config;
-pub use variant::Variant;
+pub use crate::config::Config;
+pub use crate::variant::Variant;
 
 /// Get a default configuration object.
 ///

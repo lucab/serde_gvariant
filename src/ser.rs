@@ -1,6 +1,6 @@
+use crate::config;
+use crate::errors::{self, ResultExt};
 use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
-use config;
-use errors::{self, ResultExt};
 use serde::Serialize;
 use serde::{self, ser, ser::Error};
 use std::io;
@@ -478,7 +478,6 @@ where
     where
         T: ser::Serialize,
     {
-        use serde::Serialize;
         let buf: Vec<u8> = Vec::new();
 
         let mut first = Serializer {

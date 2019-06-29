@@ -1,6 +1,6 @@
-use config;
-use de::cursor::CursorDeserializer;
-use errors;
+use crate::config;
+use crate::de::cursor::CursorDeserializer;
+use crate::errors;
 use serde::de::{self, Error};
 use std::io;
 

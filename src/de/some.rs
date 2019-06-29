@@ -1,14 +1,14 @@
+use crate::errors::{self, ResultExt};
 use byteorder::ReadBytesExt;
-use errors::{self, ResultExt};
 use serde::de::{self, Error};
 use std::io;
 
-use de::cursor::CursorDeserializer;
+use crate::de::cursor::CursorDeserializer;
 
 pub(crate) struct SomeDeserializer<'a, RS: 'a> {
     pub(crate) _len: usize,
     pub(crate) end: &'a mut u64,
-    pub(crate) top: &'a mut ::de::top::TopDeserializer<RS>,
+    pub(crate) top: &'a mut crate::de::top::TopDeserializer<RS>,
 }
 
 impl<'de, 'a, RS> de::Deserializer<'de> for &'a mut SomeDeserializer<'a, RS>
