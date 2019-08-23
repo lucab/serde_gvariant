@@ -705,7 +705,7 @@ where
         let charsig = *self.signature.first().unwrap_or(&b'Z');
         trace!("variant: got id={}", charsig as char);
         let (id, fixed_width) = match charsig {
-            b'a' => (12, false),
+            b'a' => (13, false),
             b'b' => (0, true),
             b's' => (9, false),
             b'y' => (1, true),
