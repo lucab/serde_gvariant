@@ -28,7 +28,8 @@ pub enum Variant {
     ObjectPath(String),
     /// DBus signature string (signature: `g`).
     Signature(String),
-    // TODO(lucab): add Variant (`v`).
+    /// Generic variant type (signature: `v`).
+    Variant(Box<Variant>),
     /// Optional ("Maybe") container (signature: `m`).
     Option(Option<Box<Variant>>),
     /// Homogeneous array (signature: `a`).
@@ -52,8 +53,9 @@ impl Variant {
             Variant::String(..) => 9,
             Variant::ObjectPath(..) => 10,
             Variant::Signature(..) => 11,
-            Variant::Option(..) => 12,
-            Variant::Vec(..) => 13,
+            Variant::Variant(..) => 12,
+            Variant::Option(..) => 13,
+            Variant::Vec(..) => 14,
         }
     }
 }
@@ -77,6 +79,7 @@ impl hash::Hash for Variant {
             Variant::String(ref v) => v.hash(hasher),
             Variant::ObjectPath(ref v) => v.hash(hasher),
             Variant::Signature(ref v) => v.hash(hasher),
+            Variant::Variant(ref v) => v.hash(hasher),
             Variant::Option(ref v) => v.hash(hasher),
             Variant::Vec(ref v) => v.hash(hasher),
         }
@@ -98,6 +101,7 @@ impl PartialEq for Variant {
             (&Variant::String(ref v0), &Variant::String(ref v1)) if v0 == v1 => true,
             (&Variant::ObjectPath(ref v0), &Variant::ObjectPath(ref v1)) if v0 == v1 => true,
             (&Variant::Signature(ref v0), &Variant::Signature(ref v1)) if v0 == v1 => true,
+            (&Variant::Variant(ref v0), &Variant::Variant(ref v1)) if v0 == v1 => true,
             (&Variant::Option(ref v0), &Variant::Option(ref v1)) if v0 == v1 => true,
             (&Variant::Vec(ref v0), &Variant::Vec(ref v1)) if v0 == v1 => true,
             _ => false,
@@ -120,6 +124,7 @@ impl Ord for Variant {
             (&Variant::String(ref v0), &Variant::String(ref v1)) => v0.cmp(v1),
             (&Variant::ObjectPath(ref v0), &Variant::ObjectPath(ref v1)) => v0.cmp(v1),
             (&Variant::Signature(ref v0), &Variant::Signature(ref v1)) => v0.cmp(v1),
+            (&Variant::Variant(ref v0), &Variant::Variant(ref v1)) => v0.cmp(v1),
             (&Variant::Option(ref v0), &Variant::Option(ref v1)) => v0.cmp(v1),
             (&Variant::Vec(ref v0), &Variant::Vec(ref v1)) => v0.cmp(v1),
             (ref v0, ref v1) => v0.discriminant().cmp(&v1.discriminant()),
