@@ -1,4 +1,5 @@
 use ordered_float::OrderedFloat;
+use std::collections::BTreeMap;
 use std::{cmp, hash};
 
 /// GVariant structure, variadic tuple.
@@ -43,7 +44,8 @@ pub enum Variant {
     Vec(Vec<Variant>),
     /// Structure, variadic tuple (signature: `(...)`).
     Structure(Structure),
-    // TODO(lucab): add Dictionary (`{}`).
+    /// Dictionary map (signature: `{... ...}`).
+    Dictionary(BTreeMap<Variant, Variant>),
 }
 
 impl Variant {
@@ -65,6 +67,7 @@ impl Variant {
             Variant::Option(..) => 13,
             Variant::Vec(..) => 14,
             Variant::Structure(..) => 15,
+            Variant::Dictionary(..) => 16,
         }
     }
 }
@@ -92,6 +95,7 @@ impl hash::Hash for Variant {
             Variant::Option(ref v) => v.hash(hasher),
             Variant::Vec(ref v) => v.hash(hasher),
             Variant::Structure(ref v) => v.hash(hasher),
+            Variant::Dictionary(ref v) => v.hash(hasher),
         }
     }
 }
@@ -115,6 +119,7 @@ impl PartialEq for Variant {
             (&Variant::Option(ref v0), &Variant::Option(ref v1)) if v0 == v1 => true,
             (&Variant::Vec(ref v0), &Variant::Vec(ref v1)) if v0 == v1 => true,
             (&Variant::Structure(ref v0), &Variant::Structure(ref v1)) if v0 == v1 => true,
+            (&Variant::Dictionary(ref v0), &Variant::Dictionary(ref v1)) if v0 == v1 => true,
             _ => false,
         }
     }
@@ -139,6 +144,7 @@ impl Ord for Variant {
             (&Variant::Option(ref v0), &Variant::Option(ref v1)) => v0.cmp(v1),
             (&Variant::Vec(ref v0), &Variant::Vec(ref v1)) => v0.cmp(v1),
             (&Variant::Structure(ref v0), &Variant::Structure(ref v1)) => v0.cmp(v1),
+            (&Variant::Dictionary(ref v0), &Variant::Dictionary(ref v1)) => v0.cmp(v1),
             (ref v0, ref v1) => v0.discriminant().cmp(&v1.discriminant()),
         }
     }
