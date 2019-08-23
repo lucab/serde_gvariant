@@ -38,6 +38,7 @@ mod ser;
 mod variant;
 
 pub use crate::config::Config;
+pub use crate::variant::Structure;
 pub use crate::variant::Variant;
 
 /// Get a default configuration object.

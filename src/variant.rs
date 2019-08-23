@@ -1,25 +1,51 @@
 use ordered_float::OrderedFloat;
+use std::collections::BTreeMap;
 use std::{cmp, hash};
 
+/// GVariant structure, variadic tuple.
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Structure {
+    /// Structure fields.
+    fields: Vec<Variant>,
+}
+
+/// All the types supported by GVariant (basic or containers).
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Variant {
+    /// Boolean (signature: `b`).
     Bool(bool),
-
+    /// Byte (signature: `y`).
     U8(u8),
+    /// Unsigned 16-bits integer (signature: `q`).
     U16(u16),
+    /// Unsigned 32-bits integer (signature: `u`).
     U32(u32),
+    /// Unsigned 64-bits integer (signature: `t`).
     U64(u64),
-
+    /// Signed 16-bits integer (signature: `n`).
     I16(i16),
+    /// Signed 32-bits integer (signature: `i`).
     I32(i32),
+    /// Signed 64-bits integer (signature: `x`).
     I64(i64),
-
+    /// Double-precision floating point number (signature: `d`).
     F64(f64),
-
+    /// String (signature: `s`).
     String(String),
-
+    /// DBus object path (signature: `o`).
+    ObjectPath(String),
+    /// DBus signature string (signature: `g`).
+    Signature(String),
+    /// Generic variant type (signature: `v`).
+    Variant(Box<Variant>),
+    /// Optional ("Maybe") container (signature: `m`).
     Option(Option<Box<Variant>>),
+    /// Homogeneous array (signature: `a`).
     Vec(Vec<Variant>),
+    /// Structure, variadic tuple (signature: `(...)`).
+    Structure(Structure),
+    /// Dictionary map (signature: `{... ...}`).
+    Dictionary(BTreeMap<Variant, Variant>),
 }
 
 impl Variant {
@@ -35,8 +61,13 @@ impl Variant {
             Variant::I64(..) => 7,
             Variant::F64(..) => 8,
             Variant::String(..) => 9,
-            Variant::Option(..) => 10,
-            Variant::Vec(..) => 11,
+            Variant::ObjectPath(..) => 10,
+            Variant::Signature(..) => 11,
+            Variant::Variant(..) => 12,
+            Variant::Option(..) => 13,
+            Variant::Vec(..) => 14,
+            Variant::Structure(..) => 15,
+            Variant::Dictionary(..) => 16,
         }
     }
 }
@@ -58,8 +89,13 @@ impl hash::Hash for Variant {
             Variant::I64(v) => v.hash(hasher),
             Variant::F64(v) => OrderedFloat(v).hash(hasher),
             Variant::String(ref v) => v.hash(hasher),
+            Variant::ObjectPath(ref v) => v.hash(hasher),
+            Variant::Signature(ref v) => v.hash(hasher),
+            Variant::Variant(ref v) => v.hash(hasher),
             Variant::Option(ref v) => v.hash(hasher),
             Variant::Vec(ref v) => v.hash(hasher),
+            Variant::Structure(ref v) => v.hash(hasher),
+            Variant::Dictionary(ref v) => v.hash(hasher),
         }
     }
 }
@@ -77,8 +113,13 @@ impl PartialEq for Variant {
             (&Variant::I64(v0), &Variant::I64(v1)) if v0 == v1 => true,
             (&Variant::F64(v0), &Variant::F64(v1)) if v0 == v1 => true,
             (&Variant::String(ref v0), &Variant::String(ref v1)) if v0 == v1 => true,
+            (&Variant::ObjectPath(ref v0), &Variant::ObjectPath(ref v1)) if v0 == v1 => true,
+            (&Variant::Signature(ref v0), &Variant::Signature(ref v1)) if v0 == v1 => true,
+            (&Variant::Variant(ref v0), &Variant::Variant(ref v1)) if v0 == v1 => true,
             (&Variant::Option(ref v0), &Variant::Option(ref v1)) if v0 == v1 => true,
             (&Variant::Vec(ref v0), &Variant::Vec(ref v1)) if v0 == v1 => true,
+            (&Variant::Structure(ref v0), &Variant::Structure(ref v1)) if v0 == v1 => true,
+            (&Variant::Dictionary(ref v0), &Variant::Dictionary(ref v1)) if v0 == v1 => true,
             _ => false,
         }
     }
@@ -97,8 +138,13 @@ impl Ord for Variant {
             (&Variant::I64(v0), &Variant::I64(ref v1)) => v0.cmp(v1),
             (&Variant::F64(v0), &Variant::F64(v1)) => OrderedFloat(v0).cmp(&OrderedFloat(v1)),
             (&Variant::String(ref v0), &Variant::String(ref v1)) => v0.cmp(v1),
+            (&Variant::ObjectPath(ref v0), &Variant::ObjectPath(ref v1)) => v0.cmp(v1),
+            (&Variant::Signature(ref v0), &Variant::Signature(ref v1)) => v0.cmp(v1),
+            (&Variant::Variant(ref v0), &Variant::Variant(ref v1)) => v0.cmp(v1),
             (&Variant::Option(ref v0), &Variant::Option(ref v1)) => v0.cmp(v1),
             (&Variant::Vec(ref v0), &Variant::Vec(ref v1)) => v0.cmp(v1),
+            (&Variant::Structure(ref v0), &Variant::Structure(ref v1)) => v0.cmp(v1),
+            (&Variant::Dictionary(ref v0), &Variant::Dictionary(ref v1)) => v0.cmp(v1),
             (ref v0, ref v1) => v0.discriminant().cmp(&v1.discriminant()),
         }
     }
