@@ -1,6 +1,13 @@
 use ordered_float::OrderedFloat;
 use std::{cmp, hash};
 
+/// GVariant structure, variadic tuple.
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Structure {
+    /// Structure fields.
+    fields: Vec<Variant>,
+}
+
 /// All the types supported by GVariant (basic or containers).
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Variant {
@@ -34,7 +41,8 @@ pub enum Variant {
     Option(Option<Box<Variant>>),
     /// Homogeneous array (signature: `a`).
     Vec(Vec<Variant>),
-    // TODO(lucab): add Structure (`()`).
+    /// Structure, variadic tuple (signature: `(...)`).
+    Structure(Structure),
     // TODO(lucab): add Dictionary (`{}`).
 }
 
@@ -56,6 +64,7 @@ impl Variant {
             Variant::Variant(..) => 12,
             Variant::Option(..) => 13,
             Variant::Vec(..) => 14,
+            Variant::Structure(..) => 15,
         }
     }
 }
@@ -82,6 +91,7 @@ impl hash::Hash for Variant {
             Variant::Variant(ref v) => v.hash(hasher),
             Variant::Option(ref v) => v.hash(hasher),
             Variant::Vec(ref v) => v.hash(hasher),
+            Variant::Structure(ref v) => v.hash(hasher),
         }
     }
 }
@@ -104,6 +114,7 @@ impl PartialEq for Variant {
             (&Variant::Variant(ref v0), &Variant::Variant(ref v1)) if v0 == v1 => true,
             (&Variant::Option(ref v0), &Variant::Option(ref v1)) if v0 == v1 => true,
             (&Variant::Vec(ref v0), &Variant::Vec(ref v1)) if v0 == v1 => true,
+            (&Variant::Structure(ref v0), &Variant::Structure(ref v1)) if v0 == v1 => true,
             _ => false,
         }
     }
@@ -127,6 +138,7 @@ impl Ord for Variant {
             (&Variant::Variant(ref v0), &Variant::Variant(ref v1)) => v0.cmp(v1),
             (&Variant::Option(ref v0), &Variant::Option(ref v1)) => v0.cmp(v1),
             (&Variant::Vec(ref v0), &Variant::Vec(ref v1)) => v0.cmp(v1),
+            (&Variant::Structure(ref v0), &Variant::Structure(ref v1)) => v0.cmp(v1),
             (ref v0, ref v1) => v0.discriminant().cmp(&v1.discriminant()),
         }
     }
