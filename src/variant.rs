@@ -1,25 +1,38 @@
 use ordered_float::OrderedFloat;
 use std::{cmp, hash};
 
+/// All the types supported by GVariant (basic or containers).
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Variant {
+    /// Boolean (signature: `b`).
     Bool(bool),
-
+    /// Byte (signature: `y`).
     U8(u8),
+    /// Unsigned 16-bits integer (signature: `q`).
     U16(u16),
+    /// Unsigned 32-bits integer (signature: `u`).
     U32(u32),
+    /// Unsigned 64-bits integer (signature: `t`).
     U64(u64),
-
+    /// Signed 16-bits integer (signature: `n`).
     I16(i16),
+    /// Signed 32-bits integer (signature: `i`).
     I32(i32),
+    /// Signed 64-bits integer (signature: `x`).
     I64(i64),
-
+    /// Double-precision floating point number (signature: `d`).
     F64(f64),
-
+    /// String (signature: `s`).
     String(String),
-
+    // TODO(lucab): add Object (`o`).
+    // TODO(lucab): add Signature (`s`).
+    // TODO(lucab): add Variant (`v`).
+    /// Optional ("Maybe") container (signature: `m`).
     Option(Option<Box<Variant>>),
+    /// Homogeneous array (signature: `a`).
     Vec(Vec<Variant>),
+    // TODO(lucab): add Structure (`()`).
+    // TODO(lucab): add Dictionary (`{}`).
 }
 
 impl Variant {
