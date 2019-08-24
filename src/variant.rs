@@ -1,12 +1,91 @@
+use crate::errors;
 use ordered_float::OrderedFloat;
 use std::collections::BTreeMap;
 use std::{cmp, hash};
+
+/// GVariant array, homogeneous inner type.
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[serde(transparent)]
+pub struct Array {
+    /// Inner elements.
+    #[serde(flatten)]
+    inner: Vec<Variant>,
+}
+
+impl Array {
+    /// Build an array.
+    pub fn from_elements(elements: Vec<Variant>) -> errors::Result<Self> {
+        let array = Self { inner: elements };
+        Ok(array)
+    }
+
+    /// Transform self into a `Variant`.
+    pub fn into_variant(self) -> Variant {
+        Variant::Vec(self)
+    }
+
+    /// Return type signature.
+    pub fn signature(&self) -> String {
+        // TODO(lucab): store the actual expected type, fixing the "empty array"
+        //  type confusion.
+        if self.inner.is_empty() {
+            "av".to_string()
+        } else {
+            format!("a{}", self.inner[0].signature())
+        }
+    }
+}
+
+/// GVariant dictionary, homogeneous inner key-value types.
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[serde(transparent)]
+pub struct Dictionary {
+    /// Inner map.
+    #[serde(flatten)]
+    inner: BTreeMap<Variant, Variant>,
+}
+
+impl Dictionary {
+    /// Build a dictionary.
+    pub fn from_map(map: BTreeMap<Variant, Variant>) -> errors::Result<Self> {
+        let dict = Self { inner: map };
+        Ok(dict)
+    }
+
+    /// Transform self into a `Variant`.
+    pub fn into_variant(self) -> Variant {
+        Variant::Dictionary(self)
+    }
+
+    /// Return type signature.
+    pub fn signature(&self) -> String {
+        // TODO(lucab): store the actual expected type, fixing the "empty dict"
+        //  type confusion.
+        if self.inner.is_empty() {
+            "{vv}".to_string()
+        } else {
+            let (k, v) = self.inner.iter().last().unwrap();
+            format!("{{{}{}}}", k.signature(), v.signature())
+        }
+    }
+}
 
 /// GVariant structure, variadic tuple.
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Structure {
     /// Structure fields.
     fields: Vec<Variant>,
+}
+
+impl Structure {
+    /// Return type signature.
+    pub fn signature(&self) -> String {
+        let mut inner = String::new();
+        for field in &self.fields {
+            inner += &field.signature();
+        }
+        format!("({})", inner)
+    }
 }
 
 /// All the types supported by GVariant (basic or containers).
@@ -40,15 +119,38 @@ pub enum Variant {
     Variant(Box<Variant>),
     /// Optional ("Maybe") container (signature: `m`).
     Option(Option<Box<Variant>>),
-    /// Homogeneous array (signature: `a`).
-    Vec(Vec<Variant>),
-    /// Structure, variadic tuple (signature: `(...)`).
+    /// Homogeneous array (signature: `aX`).
+    Vec(Array),
+    /// Structure, variadic tuple (signature: `(XYZ)`).
     Structure(Structure),
-    /// Dictionary map (signature: `{... ...}`).
-    Dictionary(BTreeMap<Variant, Variant>),
+    /// Dictionary map (signature: `{XY}`).
+    Dictionary(Dictionary),
 }
 
 impl Variant {
+    /// Return inner type signature.
+    pub fn signature(&self) -> String {
+        match *self {
+            Variant::Bool(..) => "b".to_string(),
+            Variant::U8(..) => "y".to_string(),
+            Variant::U16(..) => "q".to_string(),
+            Variant::U32(..) => "u".to_string(),
+            Variant::U64(..) => "t".to_string(),
+            Variant::I16(..) => "n".to_string(),
+            Variant::I32(..) => "i".to_string(),
+            Variant::I64(..) => "x".to_string(),
+            Variant::F64(..) => "d".to_string(),
+            Variant::String(..) => "s".to_string(),
+            Variant::ObjectPath(..) => "o".to_string(),
+            Variant::Signature(..) => "g".to_string(),
+            Variant::Variant(..) => "v".to_string(),
+            Variant::Option(..) => "m".to_string(),
+            Variant::Vec(ref v) => v.signature(),
+            Variant::Structure(ref v) => v.signature(),
+            Variant::Dictionary(ref v) => v.signature(),
+        }
+    }
+
     pub(crate) fn discriminant(&self) -> u64 {
         match *self {
             Variant::Bool(..) => 0,

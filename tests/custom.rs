@@ -3,7 +3,7 @@ extern crate serde_bytes;
 extern crate serde_derive;
 extern crate serde_gvariant;
 
-use serde_gvariant::Variant;
+use serde_gvariant::{Array, Variant};
 
 #[test]
 fn test_bytes_buf() {
@@ -177,7 +177,9 @@ fn test_variant_02() {
 fn test_variant_03() {
     {
         let encoded: Vec<u8> = vec![0x01, 0x02, 0x00, b'a', b'y'];
-        let decoded: Variant = Variant::Vec(vec![Variant::U8(1), Variant::U8(2)]);
+        let decoded: Variant = Array::from_elements(vec![Variant::U8(1), Variant::U8(2)])
+            .unwrap()
+            .into_variant();
         //let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("Variant ser");
         let de: Variant = serde_gvariant::from_slice(&encoded[..]).expect("Variant de");
         //assert_eq!(ser, encoded);
@@ -189,7 +191,9 @@ fn test_variant_03() {
 fn test_variant_04() {
     {
         let encoded: Vec<u8> = vec![b'a', 0x00, 0x02, 0x00, b'a', b's'];
-        let decoded: Variant = Variant::Vec(vec![Variant::String("a".into())]);
+        let decoded: Variant = Array::from_elements(vec![Variant::String("a".into())])
+            .unwrap()
+            .into_variant();
         //let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("Variant ser");
         let de: Variant = serde_gvariant::from_slice(&encoded[..]).expect("Variant de");
         //assert_eq!(ser, encoded);
@@ -201,10 +205,12 @@ fn test_variant_04() {
 fn test_variant_05() {
     {
         let encoded: Vec<u8> = vec![b'a', 0x00, b'b', 0x00, 0x02, 0x04, 0x00, b'a', b's'];
-        let decoded: Variant = Variant::Vec(vec![
+        let decoded: Variant = Array::from_elements(vec![
             Variant::String("a".into()),
             Variant::String("b".into()),
-        ]);
+        ])
+        .unwrap()
+        .into_variant();
         //let ser: Vec<u8> = serde_gvariant::to_vec(&decoded).expect("Variant ser");
         let de: Variant = serde_gvariant::from_slice(&encoded[..]).expect("Variant de");
         //assert_eq!(ser, encoded);
