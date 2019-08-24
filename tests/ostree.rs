@@ -3,7 +3,7 @@ extern crate serde_bytes;
 extern crate serde_derive;
 extern crate serde_gvariant;
 
-use serde_gvariant::Variant;
+use serde_gvariant::{Array, Variant};
 use std::io::{Read, Seek};
 use std::{fs, io};
 
@@ -140,7 +140,9 @@ fn test_basic_01_commit() {
     let exp = OstreeCommit {
         metadata: vec![(
             "ostree.ref-binding".to_string(),
-            Variant::Vec(vec![Variant::String("master".to_string())]),
+            Array::from_elements(vec![Variant::String("master".to_string())])
+                .unwrap()
+                .into_variant(),
         )],
         parent_checksum: vec![],
         related_objs: vec![],
